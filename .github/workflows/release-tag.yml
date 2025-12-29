@@ -1,0 +1,43 @@
+name: Release (versioned for Obtainium)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java (Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build release APK
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_PATH="$(bash ./scripts/ci/build-android-release.sh)"
+          mkdir -p dist
+          # Keep asset name stable for Obtainium and humans.
+          cp "${APK_PATH}" "dist/Esper.apk"
+          echo "apk_path=dist/Esper.apk" >> "${GITHUB_OUTPUT}"
+
+      - name: Create GitHub Release for tag
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            ${{ steps.build.outputs.apk_path }}
