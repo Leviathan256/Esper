@@ -1,0 +1,48 @@
+name: Release (nightly for Obtainium)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-release
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java (Android)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build release APK
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_PATH="$(bash ./scripts/ci/build-android-release.sh)"
+          mkdir -p dist
+          cp "${APK_PATH}" "dist/Esper-nightly.apk"
+          echo "apk_path=dist/Esper-nightly.apk" >> "${GITHUB_OUTPUT}"
+
+      - name: Create/Update rolling nightly prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: Nightly
+          prerelease: true
+          generate_release_notes: true
+          files: |
+            ${{ steps.build.outputs.apk_path }}
