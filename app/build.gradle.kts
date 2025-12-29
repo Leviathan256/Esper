@@ -11,8 +11,35 @@ android {
         applicationId = "com.esper.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Allow CI to override version metadata for Obtainium updates.
+        val envVersionCode = System.getenv("ESPER_VERSION_CODE")?.toIntOrNull()
+        val envVersionName = System.getenv("ESPER_VERSION_NAME")
+        versionCode = envVersionCode ?: 1
+        versionName = envVersionName ?: "0.1.0"
+    }
+
+    // Allow CI (and local dev) to inject a signing key via environment variables.
+    // If no signing env is present, fall back to the default debug signing config
+    // so an APK is still installable (though signatures may differ between machines).
+    val signingStoreFile = System.getenv("ESPER_SIGNING_STORE_FILE")
+    val signingStorePassword = System.getenv("ESPER_SIGNING_STORE_PASSWORD")
+    val signingKeyAlias = System.getenv("ESPER_SIGNING_KEY_ALIAS")
+    val signingKeyPassword = System.getenv("ESPER_SIGNING_KEY_PASSWORD")
+
+    if (
+        !signingStoreFile.isNullOrBlank() &&
+        !signingStorePassword.isNullOrBlank() &&
+        !signingKeyAlias.isNullOrBlank() &&
+        !signingKeyPassword.isNullOrBlank()
+    ) {
+        signingConfigs {
+            create("releaseFromEnv") {
+                storeFile = file(signingStoreFile)
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -22,6 +49,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Prefer env-provided signing (stable across CI runs), otherwise use debug signing.
+            signingConfig = signingConfigs.findByName("releaseFromEnv") ?: signingConfigs.getByName("debug")
         }
     }
 

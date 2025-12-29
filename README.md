@@ -5,8 +5,16 @@ Minimal Android app scaffold that launches directly into a map view (first scree
 ## Build
 
 ```bash
-./gradlew :app:assembleDebug
+# If the Gradle wrapper is unavailable in your checkout, use a local Gradle install.
+gradle :app:assembleDebug
 ```
+
+## Install via Obtainium
+
+- Add this repo in **Obtainium** using the **GitHub Releases** source.
+- Install from the latest release asset:
+  - **Stable tags**: `Esper.apk`
+  - **Nightly** (rolling `nightly` prerelease): `Esper-nightly.apk`
 
 ## What’s in the app
 
