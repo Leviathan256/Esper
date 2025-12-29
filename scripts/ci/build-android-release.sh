@@ -2,18 +2,28 @@
 set -euo pipefail
 
 # Builds an Android release APK and writes the path to stdout.
-# This repo currently does not include the Android project files; once they exist,
-# this script is intended to be called by GitHub Actions.
+# Prefer using the Gradle wrapper when it works, but fall back to `gradle`
+# (useful in CI if the wrapper JAR isn't checked in).
 
-if [[ ! -f "./gradlew" ]]; then
-  echo "ERROR: ./gradlew not found. Add your Android/Gradle project to this repo, or update scripts/ci/build-android-release.sh for your build system." >&2
-  exit 2
+GRADLE_CMD=""
+if [[ -f "./gradlew" ]]; then
+  chmod +x ./gradlew
+  if ./gradlew -v >/dev/null 2>&1; then
+    GRADLE_CMD="./gradlew"
+  fi
 fi
 
-chmod +x ./gradlew
+if [[ -z "${GRADLE_CMD}" ]]; then
+  if command -v gradle >/dev/null 2>&1; then
+    GRADLE_CMD="gradle"
+  else
+    echo "ERROR: No working Gradle found. Either commit a working Gradle wrapper (including gradle-wrapper.jar) or ensure `gradle` is installed in CI." >&2
+    exit 2
+  fi
+fi
 
 # Common Android build task; adjust if your module name differs from :app
-./gradlew :app:assembleRelease
+"${GRADLE_CMD}" :app:assembleRelease
 
 # Resolve the first produced release APK
 APK_PATH="$(ls -1 app/build/outputs/apk/release/*.apk 2>/dev/null | head -n 1 || true)"

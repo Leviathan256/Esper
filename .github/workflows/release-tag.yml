@@ -24,11 +24,61 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle (without wrapper)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Restore CI signing key (cache)
+        id: cache-keystore
+        uses: actions/cache@v4
+        with:
+          path: .ci
+          key: esper-ci-keystore-v1
+
+      - name: Create CI signing key (if missing)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ci
+          if [[ ! -f ".ci/esper-ci-release.jks" ]]; then
+            keytool -genkeypair \
+              -keystore ".ci/esper-ci-release.jks" \
+              -storepass "esper-ci-storepass" \
+              -alias "esper" \
+              -keypass "esper-ci-keypass" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Esper CI, OU=CI, O=Esper, L=Internet, S=Internet, C=US"
+          fi
+
       - name: Build release APK
         id: build
         shell: bash
         run: |
           set -euo pipefail
+          # Version info for Android updates (versionCode must increase).
+          TAG="${GITHUB_REF_NAME}"
+          VER="${TAG#v}"
+          if [[ "${VER}" =~ ^([0-9]+)\\.([0-9]+)\\.([0-9]+)$ ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
+            export ESPER_VERSION_NAME="${VER}"
+            export ESPER_VERSION_CODE="$((MAJOR*1000000 + MINOR*1000 + PATCH))"
+          else
+            export ESPER_VERSION_NAME="${VER}"
+            export ESPER_VERSION_CODE="$(git rev-list --count HEAD)"
+          fi
+
+          export ESPER_SIGNING_STORE_FILE="${GITHUB_WORKSPACE}/.ci/esper-ci-release.jks"
+          export ESPER_SIGNING_STORE_PASSWORD="esper-ci-storepass"
+          export ESPER_SIGNING_KEY_ALIAS="esper"
+          export ESPER_SIGNING_KEY_PASSWORD="esper-ci-keypass"
           APK_PATH="$(bash ./scripts/ci/build-android-release.sh)"
           mkdir -p dist
           # Keep asset name stable for Obtainium and humans.
