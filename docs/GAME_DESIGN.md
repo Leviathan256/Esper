@@ -45,8 +45,10 @@ request. Merged changes ship to everyone's phone through Obtainium.
    when their gauge fills. Not strict alternating turns.
 4. **Progression is job-based, not level-only.** A character is defined by the
    jobs they've worked and the abilities carried between them.
-5. _TODO — a social pillar. What do two players standing in the same place get
-   that one player doesn't?_
+5. **Some things take a group.** Rituals cannot be performed alone (see
+   Rituals). Whether they also require players to be *physically* together is
+   the open half of this pillar, and the only remaining candidate for giving
+   the real map a social role.
 
 ## Core loop
 
@@ -240,6 +242,66 @@ causes fade.
   able to claim the places its members actually play.
 - **The guild leader, or a designee, stakes the claim** on the guild's behalf.
 
+## Rituals
+
+**Settled: rituals exist, and they are performed by groups of players.** A
+ritual is something no solo player can do.
+
+Everything else about them is open, but the shape of the rest of the design
+constrains them, and there is one decision to make before any of the others
+matter.
+
+### The decision that gates the rest
+
+**Do rituals require players to be physically together, or only to participate
+at the same time?**
+
+This is worth answering first because it is the only remaining candidate for
+pillar 5 — the social pillar still marked TODO. Teleportation already lets
+players reach each other's radii and territories, so *remote* co-operation is
+solved. Nothing in the design yet gives a reason to stand in the same physical
+place. If rituals require bodily co-presence, they become that reason, and the
+Pokémon Go half of the premise gets its pillar. If they do not, the real map's
+social role stays decorative.
+
+The obvious objection is a small or scattered player base: a mechanic requiring
+three people in one street is a mechanic nobody performs. A middle path exists —
+rituals are performable remotely, but physically co-present participants count
+for more, or unlock greater rituals — which keeps them accessible while making
+meeting up genuinely better. Recommended, but it is a design call, not mine.
+
+### What rituals could be for
+
+Named here because each one plugs a gap that already exists, not as a wishlist:
+
+- **Summoning a large encounter** the party could not otherwise meet — the raid
+  shape, and a natural fit for ATB combat with several real players.
+- **Staking guild territory**, making a guild claim a ceremony rather than a
+  button the leader presses alone.
+- **Investing a title** that has faded, so succession is something a guild
+  performs together rather than a race to tap first.
+- **Recovering a claim from purgatory**, giving the returning-player flow a
+  shape and a reason to involve others.
+- **Unlocking advanced jobs**, gating the deep end of progression behind
+  co-operation.
+
+### Constraints any ritual design inherits
+
+- Rituals happen **on the real map** like everything else (pillar 1). They are
+  not a menu screen.
+- The **safety rules still apply**: a ritual must never require standing
+  somewhere dangerous or private, and never route players onto roads, railways,
+  water, or private property.
+- Rituals are **content, so they are data** — defined by a schema and validated
+  in CI, exactly like jobs and monsters. A ritual should be addable without
+  touching engine code.
+- If a ritual can be performed at a claim, **access follows the claim's
+  permissions** — a friend's residence admits friends, guild territory admits
+  the guild.
+- Anything that grants attunement, land, or a title through a ritual must
+  respect the anti-spoofing rules above; a ritual must not become the cheap path
+  around a week of encounters.
+
 Why these rules are load-bearing, so no run "streamlines" them away:
 
 - The week of activity plus physical presence is the **anti-spoofing design**,
@@ -358,6 +420,7 @@ character and not with the job instance.
 | Dice / resolution | not started | Define the core roll before anything depends on it |
 | Bestiary | not started | D&D monsters as the content backbone. Data-driven, same argument as jobs |
 | Inventory / loot | not started | |
+| Rituals | not started | Group-only. Co-presence requirement undecided; see Rituals |
 | Social / co-op | not started | Pokémon Go's domain: friends, trading, shared encounters |
 
 ## Rules for changes
@@ -434,6 +497,9 @@ terrain where available, ATB turn order, jobs as a data pipeline. Still open:
 - **Does one claim at a time count guild claims?** Whether holding a personal
   residence prevents staking for a guild, or the two are independent, is
   undefined.
+- **Do rituals require physical co-presence?** The gating question for the
+  social pillar — see Rituals. Also: how many participants, does a ritual take
+  real time, and what happens when someone drops out partway?
 - **Does teleporting to another player's radius need their consent?** Arriving
   uninvited at someone's live location is a social and a safety question, not
   just a mechanical one.
