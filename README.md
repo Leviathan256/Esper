@@ -49,26 +49,60 @@ Android only installs an update over an existing install when **both are signed
 by the same key**. If the key ever changes, every player has to uninstall and
 reinstall, losing local data. So the key must be durable.
 
-Create one and store it as repository secrets:
+Create one using **whichever tool you already have**. All three produce the same
+thing: a PKCS12 keystore holding one RSA key under the alias `esper`. Pick one.
+
+Whichever you use, choose **one password and use it everywhere**. A PKCS12
+keystore cannot hold a key password different from the store password — keytool
+ignores a differing `-keypass` with only a warning, and the mismatch surfaces
+much later as `Given final block not properly padded` in the middle of an APK
+packaging task.
+
+### Option A — openssl (no Java needed)
+
+`keytool` only exists if you have a JDK installed. openssl is far more commonly
+present, and works fine:
 
 ```bash
-PW='<choose-one-password>'      # store and key password must be the SAME, see below
+PW='<choose-one-password>'
 
-keytool -genkeypair \
-  -keystore esper-release.jks \
-  -alias esper \
-  -keyalg RSA -keysize 2048 -validity 10000 \
-  -storepass "$PW" -keypass "$PW" \
-  -dname "CN=Esper, O=Esper, C=US"
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem \
+  -days 10000 -nodes -subj "/CN=Esper, O=Esper, C=US"
 
-base64 -w0 esper-release.jks   # macOS: base64 -i esper-release.jks
+openssl pkcs12 -export -inkey key.pem -in cert.pem \
+  -name esper -out esper-release.jks -passout pass:"$PW"
+
+rm key.pem cert.pem      # the keystore now holds both
 ```
 
-Use **one password for both** `-storepass` and `-keypass`. Since JDK 9 keytool
-creates PKCS12 keystores, which cannot store a key password different from the
-store password — it ignores `-keypass` with only a warning, and the mismatch
-then surfaces much later as `Given final block not properly padded` in the
-middle of an APK packaging task.
+### Option B — Docker (no local install at all)
+
+Runs keytool inside a throwaway container and leaves the keystore in the
+current directory:
+
+```bash
+PW='<choose-one-password>'
+
+docker run --rm -v "$PWD:/w" -w /w eclipse-temurin:17 \
+  keytool -genkeypair -keystore esper-release.jks -alias esper \
+    -keyalg RSA -keysize 2048 -validity 10000 \
+    -storepass "$PW" -keypass "$PW" -dname "CN=Esper, O=Esper, C=US"
+```
+
+### Option C — Android Studio
+
+**Build → Generate Signed App Bundle / APK → APK → Create new…**, then fill in
+the form. Use the same value for both password fields and set the alias to
+`esper`.
+
+### Then encode it
+
+```bash
+base64 -w0 esper-release.jks          # Linux
+base64 -i esper-release.jks           # macOS
+# PowerShell:
+# [Convert]::ToBase64String([IO.File]::ReadAllBytes("esper-release.jks"))
+```
 
 Then add, under **Settings → Secrets and variables → Actions**:
 
