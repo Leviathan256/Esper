@@ -22,8 +22,13 @@ if [[ -z "${GRADLE_CMD}" ]]; then
   fi
 fi
 
-# Common Android build task; adjust if your module name differs from :app
-"${GRADLE_CMD}" :app:assembleRelease
+# Common Android build task; adjust if your module name differs from :app.
+# --build-cache is what makes a repeat CI build cheap once setup-gradle has
+# restored ~/.gradle; --console=plain keeps the Actions log readable.
+"${GRADLE_CMD}" :app:assembleRelease \
+  --build-cache \
+  --console=plain \
+  --stacktrace
 
 # Resolve the first produced release APK
 APK_PATH="$(ls -1 app/build/outputs/apk/release/*.apk 2>/dev/null | head -n 1 || true)"

@@ -16,6 +16,17 @@ android {
         val envVersionName = System.getenv("ESPER_VERSION_NAME")
         versionCode = envVersionCode ?: 1
         versionName = envVersionName ?: "0.1.0"
+
+        // Build provenance, surfaced in-app and sent to Claude as context.
+        val gitSha = System.getenv("ESPER_GIT_SHA") ?: "local"
+        val channel = System.getenv("ESPER_CHANNEL") ?: "dev"
+        // Falls back to the canonical repo for local (non-CI) builds.
+        val repo = System.getenv("ESPER_REPO") ?: "Leviathan256/Esper"
+        buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
+        buildConfigField("String", "CHANNEL", "\"$channel\"")
+        buildConfigField("String", "REPO_OWNER", "\"${repo.substringBefore('/')}\"")
+        buildConfigField("String", "REPO_NAME", "\"${repo.substringAfter('/')}\"")
+        buildConfigField("String", "CLAUDE_WORKFLOW_FILE", "\"claude-dispatch.yml\"")
     }
 
     // Allow CI (and local dev) to inject a signing key via environment variables.
@@ -56,6 +67,9 @@ android {
 
     buildFeatures {
         compose = true
+        // Required by AGP 8+: MainActivity reads BuildConfig, which is not
+        // generated unless this is switched on explicitly.
+        buildConfig = true
     }
 
     composeOptions {
@@ -85,6 +99,10 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.navigation:navigation-compose:2.8.4")
+
+    // Stores the GitHub token used to dispatch Claude runs. Backed by the
+    // Android keystore so the token never sits in plaintext prefs.
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Map view (OpenStreetMap). Requires INTERNET permission for live tiles.
     implementation("org.osmdroid:osmdroid-android:6.1.20")

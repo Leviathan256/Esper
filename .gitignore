@@ -19,6 +19,23 @@
 *.tar.gz
 *.rar
 
+# The Gradle wrapper jar is an exception to the *.jar rule above.
+!gradle/wrapper/gradle-wrapper.jar
+
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+captures/
+.externalNativeBuild/
+.cxx/
+
+# CI signing key and release staging — must never be committed.
+.ci/
+dist/

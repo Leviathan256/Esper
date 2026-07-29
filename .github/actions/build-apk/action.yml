@@ -1,0 +1,151 @@
+name: Build Esper APK
+description: >-
+  Builds a signed Esper release APK plus an esper-release.json manifest.
+  Shared by the nightly and tagged release workflows so both stay in sync.
+
+inputs:
+  version-name:
+    description: Android versionName (e.g. 1.2.3 or nightly-abc1234)
+    required: true
+  version-code:
+    description: Android versionCode. Must increase monotonically across ALL channels.
+    required: true
+  asset-name:
+    description: File name for the published APK asset (e.g. Esper.apk)
+    required: true
+  channel:
+    description: Release channel recorded in the manifest (stable or nightly)
+    required: true
+
+outputs:
+  apk-path:
+    description: Path to the built APK, renamed to asset-name
+    value: ${{ steps.build.outputs.apk-path }}
+  manifest-path:
+    description: Path to esper-release.json
+    value: ${{ steps.build.outputs.manifest-path }}
+
+runs:
+  using: composite
+  steps:
+    # The ubuntu runner images ship a JDK 17 already, so this resolves from the
+    # local toolchain cache instead of downloading.
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "17"
+
+    # Deliberately NOT using android-actions/setup-android: the runner image
+    # already has the SDK. We only pay for a component install if one is
+    # genuinely missing, which keeps the common case at ~0s.
+    - name: Ensure Android SDK components
+      shell: bash
+      run: |
+        set -euo pipefail
+        SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+        if [[ -z "${SDK}" || ! -d "${SDK}" ]]; then
+          echo "::error::No Android SDK on this runner image and none was installed."
+          exit 1
+        fi
+        echo "ANDROID_HOME=${SDK}" >> "${GITHUB_ENV}"
+        echo "ANDROID_SDK_ROOT=${SDK}" >> "${GITHUB_ENV}"
+
+        missing=()
+        [[ -d "${SDK}/platforms/android-35" ]] || missing+=("platforms;android-35")
+        [[ -d "${SDK}/build-tools/35.0.0" ]] || missing+=("build-tools;35.0.0")
+        if (( ${#missing[@]} )); then
+          echo "Installing missing SDK components: ${missing[*]}"
+          yes | "${SDK}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "${SDK}/cmdline-tools/latest/bin/sdkmanager" "${missing[@]}"
+        else
+          echo "Android SDK already has everything we need."
+        fi
+
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: "8.7"
+        # Only the default branch writes the shared cache; PR/tag builds read it.
+        # This stops concurrent runs from thrashing each other's entries.
+        cache-read-only: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
+        add-job-summary: on-failure
+
+    # A stable signing identity is required for Obtainium/Android to install an
+    # update over an existing install. Regenerating it would orphan every
+    # already-installed copy, so the key is cached and only created once.
+    - name: Restore CI signing key
+      uses: actions/cache@v4
+      with:
+        path: .ci
+        key: esper-ci-keystore-v1
+
+    - name: Create CI signing key if missing
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p .ci
+        if [[ -f ".ci/esper-ci-release.jks" ]]; then
+          echo "Reusing cached signing key."
+          exit 0
+        fi
+        echo "::warning::No cached signing key found; generating a new one. Any \
+        previously installed build will need a manual uninstall/reinstall."
+        keytool -genkeypair \
+          -keystore ".ci/esper-ci-release.jks" \
+          -storepass "esper-ci-storepass" \
+          -alias "esper" \
+          -keypass "esper-ci-keypass" \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -dname "CN=Esper CI, OU=CI, O=Esper, L=Internet, S=Internet, C=US"
+
+    - name: Build release APK
+      id: build
+      shell: bash
+      env:
+        ESPER_VERSION_NAME: ${{ inputs.version-name }}
+        ESPER_VERSION_CODE: ${{ inputs.version-code }}
+        ESPER_CHANNEL: ${{ inputs.channel }}
+        ESPER_GIT_SHA: ${{ github.sha }}
+        ESPER_REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        export ESPER_SIGNING_STORE_FILE="${GITHUB_WORKSPACE}/.ci/esper-ci-release.jks"
+        export ESPER_SIGNING_STORE_PASSWORD="esper-ci-storepass"
+        export ESPER_SIGNING_KEY_ALIAS="esper"
+        export ESPER_SIGNING_KEY_PASSWORD="esper-ci-keypass"
+
+        APK_PATH="$(bash ./scripts/ci/build-android-release.sh)"
+
+        mkdir -p dist
+        cp "${APK_PATH}" "dist/${{ inputs.asset-name }}"
+
+        # Machine-readable manifest so the app can detect a new build itself
+        # instead of waiting for Obtainium's next background poll.
+        cat > dist/esper-release.json <<JSON
+        {
+          "versionName": "${ESPER_VERSION_NAME}",
+          "versionCode": ${ESPER_VERSION_CODE},
+          "channel": "${ESPER_CHANNEL}",
+          "gitSha": "${ESPER_GIT_SHA}",
+          "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "apkAsset": "${{ inputs.asset-name }}",
+          "repo": "${ESPER_REPO}"
+        }
+        JSON
+
+        echo "apk-path=dist/${{ inputs.asset-name }}" >> "${GITHUB_OUTPUT}"
+        echo "manifest-path=dist/esper-release.json" >> "${GITHUB_OUTPUT}"
+
+        {
+          echo "### Esper build"
+          echo ""
+          echo "| field | value |"
+          echo "| --- | --- |"
+          echo "| versionName | \`${ESPER_VERSION_NAME}\` |"
+          echo "| versionCode | \`${ESPER_VERSION_CODE}\` |"
+          echo "| channel | \`${ESPER_CHANNEL}\` |"
+          echo "| apk | \`${{ inputs.asset-name }}\` ($(du -h "dist/${{ inputs.asset-name }}" | cut -f1)) |"
+        } >> "${GITHUB_STEP_SUMMARY}"
