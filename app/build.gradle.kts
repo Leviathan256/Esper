@@ -82,6 +82,14 @@ android {
         }
     }
 
+    // Java and Kotlin must agree on the JVM target or the Kotlin plugin fails the
+    // build. kotlinOptions below sets 17, so compileOptions has to match rather
+    // than fall back to its 1.8 default.
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
     kotlinOptions {
         jvmTarget = "17"
     }

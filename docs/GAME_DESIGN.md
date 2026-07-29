@@ -56,8 +56,27 @@ These apply to every Claude run, whoever dispatched it:
 - Existing player-facing features are not removed unless the request says to.
 - New dependencies are pinned to an explicit version.
 
+## Who is allowed to vibe-code
+
+Right now the answer is "whoever you give a token to". The app dispatches with
+a GitHub PAT that the player enters themselves, so the ability to start a
+Claude run is exactly the set of people you have granted repo access to. The
+real safety gate is that Claude opens a **pull request** — a human still merges
+before anything reaches a phone. Keep that gate.
+
+This does not scale to open enrolment as-is. Handing PATs to arbitrary players
+would let any of them drive code into an APK that everyone installs. Opening it
+up means a mediating service that holds the only token, authenticates players,
+rate-limits them, and dispatches on their behalf — plus a rule that
+player-originated PRs never auto-merge. Treat that as a prerequisite for public
+launch, not a later polish item.
+
 ## Open questions
 
 <!-- Park undecided things here so runs don't silently decide them for you. -->
 
-- _TODO_
+- How much of a player's real location leaves the device, and where does it go?
+- Is the world shared (everyone sees the same encounter at the same place) or
+  per-player? This decision blocks most of the systems table.
+- What happens to a player's character when a vibe-coded change alters the
+  rules underneath it?
