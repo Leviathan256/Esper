@@ -194,7 +194,8 @@ else, and it should never be exposed as coordinates where a place name would do.
 Settled rules:
 
 1. An area can only be claimed after the player has been **active in it for at
-   least a week**.
+   least a week**. **Active means fighting an encounter there — not merely being
+   present.** A phone left on a windowsill accrues nothing.
 2. The player must be **physically present** to claim it. Teleporting there is
    not enough.
 3. A player holds **exactly one claim at a time**.
@@ -203,12 +204,54 @@ Settled rules:
 5. Attunement does not survive leaving. Returning to a previously held area
    means **another full week** of activity there first.
 
+### What a claim holds
+
+A claim is not just a flag on the map. It accumulates:
+
+- **Structures** granting benefits — faster recovery, storage, and similar;
+- **Upgrades** to those structures;
+- **History** of what happened there.
+
+This is what separates the three options in rule 4. **Moving** a claim carries
+the structures, upgrades, and history to the new location. **Removing** it and
+starting another does not — you begin with bare ground. That is the whole cost
+of the choice, and it is why the option exists.
+
+### Decay and purgatory
+
+**90 days of inactivity sends a claim into purgatory.** The land becomes
+available to other players again.
+
+Purgatory is a holding state, **not deletion**. Structures, upgrades, history
+and stored contents are preserved and recoverable — a returning player gets
+their things back, even if someone else now holds the ground. Nothing a player
+built is ever destroyed by absence alone. Any implementation that deletes on
+expiry is wrong.
+
+**Titles are attuned too.** Guild leadership and similar roles accrue and fade
+on the same principle: a title left inactive fades and becomes claimable by
+another player. This is deliberate — it stops a guild being locked forever by
+an absent leader. An *active* leader is never at risk, since only inactivity
+causes fade.
+
+### Guilds
+
+- **Every member contributes attunement** to an area. A guild naturally becomes
+  able to claim the places its members actually play.
+- **The guild leader, or a designee, stakes the claim** on the guild's behalf.
+
 Why these rules are load-bearing, so no run "streamlines" them away:
 
-- The week of activity plus physical presence is the **anti-spoofing design**.
-  Faking a single position is trivial; faking a week of plausible presence is
-  not. This is a far stronger defence than any client-side spoof detection, and
-  it should not be shortened for convenience.
+- The week of activity plus physical presence is the **anti-spoofing design**,
+  and tying activity to *encounters* rather than presence is what gives it
+  teeth. Faking a position is trivial and leaving a device somewhere is free;
+  fighting a week of encounters is neither. Do not weaken this to "time spent"
+  for convenience.
+- **Attunement must accrue where the player physically is, not where the avatar
+  is.** Otherwise teleporting to a friend's territory and fighting there would
+  farm attunement for ground the player has never visited, which defeats every
+  rule above. This follows from the intent rather than having been stated
+  outright — worth confirming, but no run should assume the opposite.
 - Rule 2 is also the answer to what stays exclusive to being physically
   somewhere. Teleportation reaches claims, but only real presence creates them.
 - Rule 5 stops claim-hopping: no cycling between two spots to hold the best of
@@ -301,8 +344,11 @@ character and not with the job instance.
 | ATB turn order | not started | Speed stat charges the gauge |
 | Movement leash | not started | Radius travels with the player; GPS centres the circle, not the avatar |
 | Territories | not started | Residence + guild claims as coarse H3 cells; travel to/from/within |
-| Claiming | not started | Week of activity + physical presence; one claim; re-attune to return |
-| Activity tracking | not started | On-device aggregated H3 counters, trusted clock, no raw traces |
+| Claiming | not started | Week of encounters + physical presence; one claim; re-attune to return |
+| Structures | not started | Recovery, storage, upgrades, history; carried by a move, lost by a remove |
+| Purgatory | not started | 90-day decay; holding state, never deletion |
+| Titles | not started | Attuned like land; fade on inactivity, claimable by another |
+| Activity tracking | not started | Encounter counters per H3 cell at the player's real position, trusted clock, no raw traces |
 | Teleportation | not started | Low cost, between allowed regions and into active battles; doubles as reconnect |
 | Encounter seeding | not started | Shared vs per-player placement is still open |
 | Job pipeline | not started | Schema → data → CI validation → loader → migrations, per above |
@@ -369,20 +415,25 @@ terrain where available, ATB turn order, jobs as a data pipeline. Still open:
   (see Claiming territory). Whether encounters also seed only near the real
   position, and whether any loot or discovery is presence-gated, is still open —
   and claiming alone is a weekly act, so it may not carry the walking loop.
-- **What does "active in an area" actually mean?** Time present, distinct days,
-  sessions, encounters fought, distance covered? Must the week be contiguous?
-  This single definition decides how claiming feels, and every implementation
-  will differ until it is written down.
-- **What is the difference between "move your claim" and "remove it and start
-  another"?** They are only distinct if a claim accrues something worth
-  carrying — stored items, structures, upgrades, history. Define what a claim
-  holds, and the two options separate on their own.
-- **Do claims expire?** Nothing currently reclaims land from a player who stops
-  playing. In a shared world with finite space, permanent claims eventually lock
-  the map up. Decay-on-inactivity is the obvious answer but has not been chosen.
-- **Do guild territories follow the same rules?** One-claim-at-a-time is written
-  for personal residences. Who stakes a guild claim, against whose attunement,
-  and how it interacts with members' own claims is undefined.
+- **How many encounters make a week of attunement?** Settled that activity means
+  encounters; not settled whether the bar is a total count, encounters on N
+  distinct days, or a rate. Must the week be contiguous, and does a missed day
+  reset it? This decides how claiming actually feels to earn.
+- **Does a guild member's encounter count toward both** their personal
+  attunement and the guild's, or must they choose? Doubling everything by
+  default may be right, but it should be a decision.
+- **How is a faded title claimed, and by whom?** Any member, the one with most
+  attunement, an election? An absent leader losing the title is intended; the
+  succession rule is undefined.
+- **Does a guild claim decay on the guild's inactivity or the leader's?** A
+  guild of active members under an absent leader should probably keep its land
+  and lose only the title, but that is not stated.
+- **How does a player recover things from purgatory** when another player now
+  holds the ground? The contents are preserved by rule; the retrieval flow is
+  not designed.
+- **Does one claim at a time count guild claims?** Whether holding a personal
+  residence prevents staking for a guild, or the two are independent, is
+  undefined.
 - **Does teleporting to another player's radius need their consent?** Arriving
   uninvited at someone's live location is a social and a safety question, not
   just a mechanical one.
