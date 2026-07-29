@@ -73,6 +73,8 @@ android {
     }
 
     composeOptions {
+        // Must match the Kotlin version in settings.gradle.kts: the Compose
+        // compiler hard-fails on a mismatch. 1.5.15 pairs with Kotlin 1.9.25.
         kotlinCompilerExtensionVersion = "1.5.15"
     }
 

@@ -45,7 +45,7 @@ jobs:
       # Debug rather than release: no signing key needed, and it is the
       # quickest way to answer the only question a PR check needs to answer.
       - name: Assemble debug APK
-        run: gradle :app:assembleDebug --build-cache --console=plain --stacktrace
+        run: gradle :app:assembleDebug --build-cache --console=plain
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
