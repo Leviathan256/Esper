@@ -43,9 +43,44 @@ to 15 minutes and turn on background updates. The app's own update banner is
 faster still — it checks when you open the Ask Claude screen and offers a
 one-tap install.
 
-Every build is signed with a CI key cached under `esper-ci-keystore-v1`, so
-updates install over each other cleanly. Deleting that cache would force every
-player to uninstall and reinstall.
+## Signing key — set this up before anyone installs the app
+
+Android only installs an update over an existing install when **both are signed
+by the same key**. If the key ever changes, every player has to uninstall and
+reinstall, losing local data. So the key must be durable.
+
+Create one and store it as repository secrets:
+
+```bash
+keytool -genkeypair \
+  -keystore esper-release.jks \
+  -alias esper \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -storepass "<choose-a-password>" \
+  -keypass "<choose-a-password>" \
+  -dname "CN=Esper, O=Esper, C=US"
+
+base64 -w0 esper-release.jks   # macOS: base64 -i esper-release.jks
+```
+
+Then add, under **Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `ESPER_KEYSTORE_BASE64` | the base64 output above |
+| `ESPER_KEYSTORE_PASSWORD` | your `-storepass` |
+| `ESPER_KEY_ALIAS` | `esper` |
+| `ESPER_KEY_PASSWORD` | your `-keypass` |
+
+Keep `esper-release.jks` somewhere safe and **out of the repo** — losing it
+means never being able to update an installed Esper again.
+
+Without those secrets the build still works, but falls back to a throwaway key
+kept in an Actions cache, and prints a warning saying so. That fallback is not
+safe for real distribution: cache entries are evicted after 7 days without a
+hit, and a regenerated key breaks updates for everyone already running the app.
+Each build prints its signing certificate's SHA-256 in the job summary, so a
+key change is visible in the log rather than only on players' phones.
 
 ## Setting up the Claude dispatch
 

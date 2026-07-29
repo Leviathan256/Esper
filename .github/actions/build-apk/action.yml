@@ -1,7 +1,8 @@
 name: Build Esper APK
 description: >-
   Builds a signed Esper release APK plus an esper-release.json manifest.
-  Shared by the nightly and tagged release workflows so both stay in sync.
+  Shared by the nightly, tagged release, and PR-check workflows so all three
+  produce byte-identical build steps and, crucially, the same signature.
 
 inputs:
   version-name:
@@ -14,8 +15,28 @@ inputs:
     description: File name for the published APK asset (e.g. Esper.apk)
     required: true
   channel:
-    description: Release channel recorded in the manifest (stable or nightly)
+    description: Release channel recorded in the manifest (stable, nightly, or pr)
     required: true
+  keystore-base64:
+    description: >-
+      base64 of the release keystore, from the ESPER_KEYSTORE_BASE64 secret.
+      Strongly recommended — see README. Without it the build falls back to a
+      cached throwaway key that can be evicted, which permanently breaks
+      updates for everyone who already installed the app.
+    required: false
+    default: ""
+  keystore-password:
+    description: Keystore password (ESPER_KEYSTORE_PASSWORD secret)
+    required: false
+    default: ""
+  key-alias:
+    description: Key alias (ESPER_KEY_ALIAS secret)
+    required: false
+    default: ""
+  key-password:
+    description: Key password (ESPER_KEY_PASSWORD secret)
+    required: false
+    default: ""
 
 outputs:
   apk-path:
@@ -66,40 +87,105 @@ runs:
       uses: gradle/actions/setup-gradle@v4
       with:
         gradle-version: "8.7"
-        # Only the default branch writes the shared cache; PR/tag builds read it.
-        # This stops concurrent runs from thrashing each other's entries.
+        # Only the default branch writes the shared cache; every other ref reads
+        # it. Stops concurrent runs from evicting each other's entries.
         cache-read-only: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
         add-job-summary: on-failure
 
-    # A stable signing identity is required for Obtainium/Android to install an
-    # update over an existing install. Regenerating it would orphan every
-    # already-installed copy, so the key is cached and only created once.
-    - name: Restore CI signing key
-      uses: actions/cache@v4
+    # ---------------------------------------------------------------------
+    # Signing identity.
+    #
+    # Android will only install an update over an existing install when both
+    # are signed by the SAME key. So this key must never change once anyone has
+    # installed the app.
+    #
+    # Preferred: the ESPER_KEYSTORE_BASE64 secret. Durable, identical on every
+    # ref, survives inactivity.
+    #
+    # Fallback: an Actions cache. This is a stopgap, because cache entries are
+    # evicted after 7 days without a hit, and caches created off the default
+    # branch are invisible to it. Either one silently yields a different key and
+    # permanently breaks updates for existing installs. Hence the warnings, and
+    # hence restore-only off the default branch.
+    # ---------------------------------------------------------------------
+    - name: Restore fallback signing key
+      id: keystore-cache
+      if: inputs.keystore-base64 == ''
+      uses: actions/cache/restore@v4
       with:
         path: .ci
         key: esper-ci-keystore-v1
 
-    - name: Create CI signing key if missing
+    - name: Resolve signing key
+      id: signing
       shell: bash
+      env:
+        KEYSTORE_BASE64: ${{ inputs.keystore-base64 }}
+        KEYSTORE_PASSWORD: ${{ inputs.keystore-password }}
+        KEY_ALIAS: ${{ inputs.key-alias }}
+        KEY_PASSWORD: ${{ inputs.key-password }}
       run: |
         set -euo pipefail
         mkdir -p .ci
-        if [[ -f ".ci/esper-ci-release.jks" ]]; then
-          echo "Reusing cached signing key."
+
+        if [[ -n "${KEYSTORE_BASE64}" ]]; then
+          echo "Using the keystore from repository secrets (durable)."
+          printf '%s' "${KEYSTORE_BASE64}" | base64 -d > .ci/esper-release.jks
+          {
+            echo "store-file=${GITHUB_WORKSPACE}/.ci/esper-release.jks"
+            echo "store-password=${KEYSTORE_PASSWORD}"
+            echo "key-alias=${KEY_ALIAS}"
+            echo "key-password=${KEY_PASSWORD}"
+            echo "needs-cache-save=false"
+          } >> "${GITHUB_OUTPUT}"
           exit 0
         fi
-        echo "::warning::No cached signing key found; generating a new one. Any \
-        previously installed build will need a manual uninstall/reinstall."
-        keytool -genkeypair \
-          -keystore ".ci/esper-ci-release.jks" \
-          -storepass "esper-ci-storepass" \
-          -alias "esper" \
-          -keypass "esper-ci-keypass" \
-          -keyalg RSA \
-          -keysize 2048 \
-          -validity 10000 \
-          -dname "CN=Esper CI, OU=CI, O=Esper, L=Internet, S=Internet, C=US"
+
+        echo "::warning::ESPER_KEYSTORE_BASE64 is not set, so this build is \
+        using a throwaway signing key cached in Actions. Cache entries expire \
+        after 7 days of disuse, and a regenerated key permanently breaks \
+        updates for anyone who already installed the app. See the README for \
+        how to promote this key to a repository secret."
+
+        NEEDS_SAVE=false
+        if [[ ! -f ".ci/esper-ci-release.jks" ]]; then
+          echo "::warning::No cached signing key was found, so a NEW one is \
+          being generated. Any build installed from an earlier key will need a \
+          manual uninstall and reinstall."
+          keytool -genkeypair \
+            -keystore ".ci/esper-ci-release.jks" \
+            -storepass "esper-ci-storepass" \
+            -alias "esper" \
+            -keypass "esper-ci-keypass" \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Esper CI, OU=CI, O=Esper, L=Internet, S=Internet, C=US"
+          NEEDS_SAVE=true
+        else
+          echo "Reusing the cached signing key."
+        fi
+
+        {
+          echo "store-file=${GITHUB_WORKSPACE}/.ci/esper-ci-release.jks"
+          echo "store-password=esper-ci-storepass"
+          echo "key-alias=esper"
+          echo "key-password=esper-ci-keypass"
+          echo "needs-cache-save=${NEEDS_SAVE}"
+        } >> "${GITHUB_OUTPUT}"
+
+    # Only the default branch may write this cache. A cache saved from a branch
+    # or tag is scoped to that ref and invisible to main, which would leave the
+    # channels signed by different keys.
+    - name: Save fallback signing key
+      if: >-
+        inputs.keystore-base64 == '' &&
+        steps.signing.outputs.needs-cache-save == 'true' &&
+        github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      uses: actions/cache/save@v4
+      with:
+        path: .ci
+        key: esper-ci-keystore-v1
 
     - name: Build release APK
       id: build
@@ -110,13 +196,12 @@ runs:
         ESPER_CHANNEL: ${{ inputs.channel }}
         ESPER_GIT_SHA: ${{ github.sha }}
         ESPER_REPO: ${{ github.repository }}
+        ESPER_SIGNING_STORE_FILE: ${{ steps.signing.outputs.store-file }}
+        ESPER_SIGNING_STORE_PASSWORD: ${{ steps.signing.outputs.store-password }}
+        ESPER_SIGNING_KEY_ALIAS: ${{ steps.signing.outputs.key-alias }}
+        ESPER_SIGNING_KEY_PASSWORD: ${{ steps.signing.outputs.key-password }}
       run: |
         set -euo pipefail
-        export ESPER_SIGNING_STORE_FILE="${GITHUB_WORKSPACE}/.ci/esper-ci-release.jks"
-        export ESPER_SIGNING_STORE_PASSWORD="esper-ci-storepass"
-        export ESPER_SIGNING_KEY_ALIAS="esper"
-        export ESPER_SIGNING_KEY_PASSWORD="esper-ci-keypass"
-
         APK_PATH="$(bash ./scripts/ci/build-android-release.sh)"
 
         mkdir -p dist
@@ -139,6 +224,12 @@ runs:
         echo "apk-path=dist/${{ inputs.asset-name }}" >> "${GITHUB_OUTPUT}"
         echo "manifest-path=dist/esper-release.json" >> "${GITHUB_OUTPUT}"
 
+        # Record the signing certificate digest. If this value ever changes
+        # between builds, updates will start failing on every installed device,
+        # and this line in the log is how you find out when it happened.
+        SIGNER="$(unzip -p "dist/${{ inputs.asset-name }}" META-INF/\*.RSA 2>/dev/null |
+          keytool -printcert 2>/dev/null | grep -m1 'SHA256:' || echo 'SHA256: unknown')"
+
         {
           echo "### Esper build"
           echo ""
@@ -148,4 +239,5 @@ runs:
           echo "| versionCode | \`${ESPER_VERSION_CODE}\` |"
           echo "| channel | \`${ESPER_CHANNEL}\` |"
           echo "| apk | \`${{ inputs.asset-name }}\` ($(du -h "dist/${{ inputs.asset-name }}" | cut -f1)) |"
+          echo "| signer | \`${SIGNER#*SHA256: }\` |"
         } >> "${GITHUB_STEP_SUMMARY}"

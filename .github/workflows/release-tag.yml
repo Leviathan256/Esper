@@ -35,6 +35,10 @@ jobs:
           version-code: ${{ steps.version.outputs.version-code }}
           asset-name: ${{ steps.version.outputs.asset-name }}
           channel: stable
+          keystore-base64: ${{ secrets.ESPER_KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.ESPER_KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.ESPER_KEY_ALIAS }}
+          key-password: ${{ secrets.ESPER_KEY_PASSWORD }}
 
       - name: Create GitHub Release for tag
         uses: softprops/action-gh-release@v2

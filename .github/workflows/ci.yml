@@ -1,8 +1,11 @@
 name: CI
 
-# Every player-dispatched PR gets compiled before anyone merges it, and the
-# resulting APK is attached to the run so you can sideload a change and try it
-# on a real phone before it ships to everyone.
+# Every player-dispatched PR gets built before anyone merges it, through the
+# exact same composite action the release workflows use — so this check also
+# proves the release path still works, not just that the code compiles.
+#
+# The artifact is a signed release APK, which means you can sideload a PR build
+# straight onto a phone and it will install over your existing Esper.
 on:
   pull_request:
   push:
@@ -29,28 +32,29 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
+      - name: Compute version metadata
+        id: version
+        run: bash ./scripts/ci/version.sh nightly
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Build APK
+        id: build
+        uses: ./.github/actions/build-apk
         with:
-          gradle-version: "8.7"
-          # Read-only: only the release builds on main populate the shared cache.
-          cache-read-only: true
-
-      # Debug rather than release: no signing key needed, and it is the
-      # quickest way to answer the only question a PR check needs to answer.
-      - name: Assemble debug APK
-        run: gradle :app:assembleDebug --build-cache --console=plain
+          version-name: ${{ steps.version.outputs.version-name }}
+          version-code: ${{ steps.version.outputs.version-code }}
+          asset-name: Esper-pr.apk
+          channel: pr
+          keystore-base64: ${{ secrets.ESPER_KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.ESPER_KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.ESPER_KEY_ALIAS }}
+          key-password: ${{ secrets.ESPER_KEY_PASSWORD }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: esper-debug-${{ github.sha }}
-          path: app/build/outputs/apk/debug/*.apk
+          name: esper-pr-${{ github.sha }}
+          path: |
+            ${{ steps.build.outputs.apk-path }}
+            ${{ steps.build.outputs.manifest-path }}
           if-no-files-found: error
           retention-days: 14
