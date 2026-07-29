@@ -68,10 +68,11 @@ _TODO: which of these is the hook? Which could be cut?_
 where the encounter was seeded. Consequences that follow from pillar 1 and must
 be respected:
 
-- **Cell size must exceed GPS error.** Consumer GPS is roughly 5m at best and
-  much worse under tree cover or between buildings. A cell smaller than that
-  makes position jitter between cells and the game unplayable. Pick the cell
-  size from the accuracy figure Android reports, not from what looks tidy.
+- **GPS error moves the leash circle, never the avatar.** Consumer GPS is
+  roughly 5 m at best and much worse under tree cover or between buildings —
+  far coarser than a 1 m cell. That is only survivable because the avatar is
+  not pinned to the GPS fix: see Movement below. Never introduce a mechanic
+  that derives the avatar's cell directly from a location reading.
 - **Physical movement cannot be the only way to move.** A player may be unable
   to walk, blocked by a fence or a road, indoors, or somewhere unsafe. Real-world
   movement can be *a* way to reposition, never the only one. Treat "the player
@@ -81,12 +82,64 @@ be respected:
   target cell can't be reached safely, the game gives another way, or the
   encounter is winnable without it.
 
+**Grid.** Hexagonal, **1 metre across**. Use H3 resolution 15 (0.92 m² average
+area, 0.59 m edge, 1.03 m flat-to-flat) rather than rolling a bespoke grid:
+hexagons do not tile a sphere, and H3 already solves that, is Apache-2.0 and
+keyless, and gives globally stable cell IDs — which the territory system needs
+anyway. Its hierarchy is the real win: a res-15 combat cell's parent at res 10
+or 12 is a cheap lookup, so "is this cell inside guild territory?" is a parent
+comparison rather than a polygon test. Cost to weigh before committing:
+`h3-java` is JNI, so it adds a native library per ABI to the APK.
+
+Territory claims use coarser resolutions from the same hierarchy:
+
+| H3 res | avg area | flat-to-flat | use |
+| --- | --- | --- | --- |
+| 15 | 0.92 m² | 1.03 m | combat cell |
+| 13 | 44.97 m² | 7.21 m | room / building footprint |
+| 12 | 314.82 m² | 19.07 m | residence claim |
+| 10 | 15,425.95 m² | 133.46 m | guild territory |
+
+Note what a 1 m cell buys and costs. `Move 4` becomes literally four metres,
+which reads correctly for a game played outdoors. But cell count scales with the
+square of the radius: a 10–15 m radius gives a 300–900 cell board, the same
+order as an FFT map, while a 100 m radius would be ~35,000 cells and no longer a
+tactical board at all. **The radius, not the cell size, is what keeps combat
+tactical.** Rendering needs zoom 20–21 (8.7 px and 17.5 px per cell); OSM
+Mapnik tiles stop at z19, so the base map will be overzoomed and blurry.
+
+**Movement.** A radius of allowed territory travels with the player. The avatar
+moves freely within it; the player's GPS position sets where the circle is
+centred, *not* which cell the avatar occupies. This is what makes a 1 m cell
+workable — GPS error moves the circle, and the avatar is placed deliberately by
+touch, so jitter never teleports the avatar between cells.
+
+Beyond the moving radius, the avatar may also travel to, from, and within:
+
+- the player's own claimed **residence territory**,
+- a **friend's** residence territory,
+- shared **guild territory**.
+
+Two rules follow from GPS being noisy:
+
+- **Recentre the radius with hysteresis.** Only move the circle when the player
+  has genuinely moved further than the accuracy Android reports, so a stationary
+  player's circle stays put.
+- **Never yank the avatar.** If drift leaves the avatar outside the radius, it
+  stays where it is and is walked back in, rather than being snapped.
+
 **Elevation.** Use real terrain elevation where data is available, falling back
 to flat when it isn't — elevation is a modifier on a working flat system, never
 a prerequisite for one. Prefer a source that needs no API key and no payment
 (AWS Terrain Tiles / terrarium-encoded PNGs are the obvious candidate, and are
 tile-shaped so they cache like map tiles). Every elevation-aware rule needs a
 defined behaviour for "no data here".
+
+Be realistic about what this gives at a 1 m cell: free terrain data is roughly
+30 m resolution, so a 30 m board samples it once or twice. That is a board
+*tilt*, not FFT height tactics. Rules that need real height variation will have
+to come from building data (OSM `building:levels` / `height`) or from authored
+features, not from terrain.
 
 **Turn order.** ATB: each unit has a turn gauge that charges at a rate set by a
 speed stat. When it fills, the unit acts, and the gauge resets. Actions may cost
@@ -136,9 +189,11 @@ character and not with the job instance.
 | System | Status | Notes |
 | --- | --- | --- |
 | Map / world | implemented | osmdroid + OSM tiles, `ui/MapScreen.kt` |
-| Grid overlay on real map | not started | Pillar 1. Cell size derived from reported GPS accuracy |
-| Elevation | not started | Real terrain data, keyless source, graceful flat fallback |
+| Grid overlay on real map | not started | Pillar 1. H3 res 15 (~1 m hex) |
+| Elevation | not started | Real terrain data, keyless source, graceful flat fallback. ~30 m data gives tilt, not height tactics |
 | ATB turn order | not started | Speed stat charges the gauge |
+| Movement leash | not started | Radius travels with the player; GPS centres the circle, not the avatar |
+| Territories | not started | Residence + guild claims as coarse H3 cells; travel to/from/within |
 | Encounter seeding | not started | Shared vs per-player placement is still open |
 | Job pipeline | not started | Schema → data → CI validation → loader → migrations, per above |
 | Character sheet / stats | not started | D&D-flavoured; jobs drive stat growth |
@@ -183,15 +238,22 @@ launch, not a later polish item.
 
 <!-- Park undecided things here so runs don't silently decide them for you. -->
 
-Settled: battlefield is the real map, party is player + optional pet + optional
-solo-only NPC companion, elevation from real terrain where available, ATB turn
-order, jobs as a data pipeline. Still open:
+Settled: battlefield is the real map, 1 m hex cells on H3 res 15, a movement
+radius that travels with the player plus residence and guild territories, party
+of player + optional pet + optional solo-only NPC companion, elevation from real
+terrain where available, ATB turn order, jobs as a data pipeline. Still open:
 
-- **How does a unit reposition during a fight?** Physical walking is one way but
-  cannot be the only one (see Combat). What is the other way, and what stops it
-  from making walking pointless? This is the biggest remaining combat question.
-- **Grid shape and cell size.** Square or hex, and how many metres per cell.
-  Constrained from below by GPS error.
+- **Does the leash follow the player mid-fight?** If someone walks away during
+  combat, is the avatar dragged along, or is the radius anchored where the
+  encounter started? Biggest remaining combat question.
+- **How big is the radius?** It, not the cell size, decides whether a fight is a
+  readable tactical board or an open field. 10–15 m gives an FFT-sized map.
+- **Is territory travel instant or a fast-travel with a cost?** "Travel to/from"
+  reads as teleport; whether it costs time, resources, or a cooldown is an
+  economy decision that has not been made.
+- **Territories make GPS spoofing profitable.** Claimable land plus travel to it
+  is a standing incentive to fake a location. Not urgent while the player base
+  is people you know, but it should be answered before open enrolment.
 - **Is the world shared** (everyone sees the same encounter at the same place)
   or per-player? Difference between needing a backend and not.
 - How much of a player's real location leaves the device, and where does it go?
