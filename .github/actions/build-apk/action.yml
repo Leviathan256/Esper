@@ -225,6 +225,16 @@ runs:
         set -euo pipefail
         APK_PATH="$(bash ./scripts/ci/build-android-release.sh)"
 
+        # The script contract is "stdout is the APK path and nothing else".
+        # Check it rather than letting a violation surface as a bizarre cp error.
+        if [[ ! -f "${APK_PATH}" ]]; then
+          echo "::error::Expected an APK path on stdout from \
+          build-android-release.sh, got something else. Anything that script \
+          prints to stdout besides the path ends up concatenated into it."
+          printf 'received: %q\n' "${APK_PATH}" >&2
+          exit 1
+        fi
+
         mkdir -p dist
         cp "${APK_PATH}" "dist/${{ inputs.asset-name }}"
 
@@ -245,11 +255,20 @@ runs:
         echo "apk-path=dist/${{ inputs.asset-name }}" >> "${GITHUB_OUTPUT}"
         echo "manifest-path=dist/esper-release.json" >> "${GITHUB_OUTPUT}"
 
-        # Record the signing certificate digest. If this value ever changes
-        # between builds, updates will start failing on every installed device,
-        # and this line in the log is how you find out when it happened.
-        SIGNER="$(unzip -p "dist/${{ inputs.asset-name }}" META-INF/\*.RSA 2>/dev/null |
-          keytool -printcert 2>/dev/null | grep -m1 'SHA256:' || echo 'SHA256: unknown')"
+        # Record the signing certificate digest. If this ever changes between
+        # builds, updates start failing on every installed device, and this
+        # line in the log is how you find out when it happened.
+        #
+        # Read it with apksigner, not by unzipping META-INF: minSdk 26 means
+        # AGP skips v1 JAR signing, so there is no META-INF/*.RSA to look at.
+        APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -name apksigner -type f 2>/dev/null |
+          sort -r | head -n1 || true)"
+        if [[ -n "${APKSIGNER}" ]]; then
+          SIGNER="$("${APKSIGNER}" verify --print-certs "dist/${{ inputs.asset-name }}" 2>/dev/null |
+            grep -m1 -i 'SHA-256 digest' | sed 's/.*: *//' || echo unknown)"
+        else
+          SIGNER="unknown (apksigner not found)"
+        fi
 
         {
           echo "### Esper build"

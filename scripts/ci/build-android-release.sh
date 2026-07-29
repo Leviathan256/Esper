@@ -25,7 +25,11 @@ fi
 # Common Android build task; adjust if your module name differs from :app.
 # --build-cache is what makes a repeat CI build cheap once setup-gradle has
 # restored ~/.gradle; --console=plain keeps the Actions log readable.
-"${GRADLE_CMD}" :app:assembleRelease --build-cache --console=plain
+#
+# Gradle's output goes to stderr, NOT stdout. Callers capture this script's
+# stdout to get the APK path, so anything else written there ends up
+# concatenated into the path. Stderr is still shown in the Actions log.
+"${GRADLE_CMD}" :app:assembleRelease --build-cache --console=plain >&2
 
 # Resolve the first produced release APK
 APK_PATH="$(ls -1 app/build/outputs/apk/release/*.apk 2>/dev/null | head -n 1 || true)"
