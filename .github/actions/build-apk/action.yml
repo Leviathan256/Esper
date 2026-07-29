@@ -130,11 +130,28 @@ runs:
 
         if [[ -n "${KEYSTORE_BASE64}" ]]; then
           echo "Using the keystore from repository secrets (durable)."
-          printf '%s' "${KEYSTORE_BASE64}" | base64 -d > .ci/esper-release.jks
+          if ! printf '%s' "${KEYSTORE_BASE64}" | base64 -d > .ci/esper-release.jks; then
+            echo "::error::ESPER_KEYSTORE_BASE64 is not valid base64. Re-run \
+            'base64 -w0 esper-release.jks' and paste the whole single line."
+            exit 1
+          fi
+
+          # A PKCS12 keystore (keytool's default since JDK 9) cannot have a key
+          # password that differs from the store password. Default the key
+          # password to the store password rather than fail deep inside the
+          # packaging task with an opaque padding error.
+          if [[ -z "${KEY_PASSWORD}" ]]; then
+            KEY_PASSWORD="${KEYSTORE_PASSWORD}"
+          elif [[ "${KEY_PASSWORD}" != "${KEYSTORE_PASSWORD}" ]]; then
+            echo "::warning::ESPER_KEY_PASSWORD differs from \
+            ESPER_KEYSTORE_PASSWORD. PKCS12 keystores do not support that, and \
+            signing will fail unless your keystore is a legacy JKS."
+          fi
+
           {
             echo "store-file=${GITHUB_WORKSPACE}/.ci/esper-release.jks"
             echo "store-password=${KEYSTORE_PASSWORD}"
-            echo "key-alias=${KEY_ALIAS}"
+            echo "key-alias=${KEY_ALIAS:-esper}"
             echo "key-password=${KEY_PASSWORD}"
             echo "needs-cache-save=false"
           } >> "${GITHUB_OUTPUT}"
@@ -152,11 +169,15 @@ runs:
           echo "::warning::No cached signing key was found, so a NEW one is \
           being generated. Any build installed from an earlier key will need a \
           manual uninstall and reinstall."
+          # Store and key password MUST be identical. keytool on JDK 17 creates
+          # PKCS12 keystores, which cannot hold a key password that differs
+          # from the store password — it ignores -keypass with only a warning,
+          # and the mismatch then surfaces much later as an unreadable key.
           keytool -genkeypair \
             -keystore ".ci/esper-ci-release.jks" \
             -storepass "esper-ci-storepass" \
             -alias "esper" \
-            -keypass "esper-ci-keypass" \
+            -keypass "esper-ci-storepass" \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
@@ -170,7 +191,7 @@ runs:
           echo "store-file=${GITHUB_WORKSPACE}/.ci/esper-ci-release.jks"
           echo "store-password=esper-ci-storepass"
           echo "key-alias=esper"
-          echo "key-password=esper-ci-keypass"
+          echo "key-password=esper-ci-storepass"
           echo "needs-cache-save=${NEEDS_SAVE}"
         } >> "${GITHUB_OUTPUT}"
 

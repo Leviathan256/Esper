@@ -52,25 +52,32 @@ reinstall, losing local data. So the key must be durable.
 Create one and store it as repository secrets:
 
 ```bash
+PW='<choose-one-password>'      # store and key password must be the SAME, see below
+
 keytool -genkeypair \
   -keystore esper-release.jks \
   -alias esper \
   -keyalg RSA -keysize 2048 -validity 10000 \
-  -storepass "<choose-a-password>" \
-  -keypass "<choose-a-password>" \
+  -storepass "$PW" -keypass "$PW" \
   -dname "CN=Esper, O=Esper, C=US"
 
 base64 -w0 esper-release.jks   # macOS: base64 -i esper-release.jks
 ```
+
+Use **one password for both** `-storepass` and `-keypass`. Since JDK 9 keytool
+creates PKCS12 keystores, which cannot store a key password different from the
+store password — it ignores `-keypass` with only a warning, and the mismatch
+then surfaces much later as `Given final block not properly padded` in the
+middle of an APK packaging task.
 
 Then add, under **Settings → Secrets and variables → Actions**:
 
 | Secret | Value |
 | --- | --- |
 | `ESPER_KEYSTORE_BASE64` | the base64 output above |
-| `ESPER_KEYSTORE_PASSWORD` | your `-storepass` |
+| `ESPER_KEYSTORE_PASSWORD` | your `$PW` |
 | `ESPER_KEY_ALIAS` | `esper` |
-| `ESPER_KEY_PASSWORD` | your `-keypass` |
+| `ESPER_KEY_PASSWORD` | your `$PW` (optional — defaults to the store password) |
 
 Keep `esper-release.jks` somewhere safe and **out of the repo** — losing it
 means never being able to update an installed Esper again.
