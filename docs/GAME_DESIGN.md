@@ -151,6 +151,44 @@ Beyond the moving radius, the avatar may also travel to, from, and within:
 - a **friend's** residence territory,
 - shared **guild territory**.
 
+**Travel.** The avatar occupies exactly **one allowed region at a time**. A
+region is one of:
+
+| Region | Anchored to |
+| --- | --- |
+| The moving radius | the player's live GPS position |
+| Own residence territory | the claim |
+| A friend's residence territory | the claim |
+| Guild territory | the claim |
+| An active battle the player is in | where that battle was seeded |
+
+**Low-cost teleportation** moves the avatar between any of these. That includes
+returning to your own radius, hopping to another player's radius, reaching a
+claim, and rejoining a fight you are already part of.
+
+The anchoring rule matters: while the avatar is in a territory or a battle,
+**that region is the leash — not the player's GPS.** A player at home whose
+avatar is in a friend's territory is playing normally, not cheating, and their
+real movement does not drag the avatar. GPS only governs the radius region.
+
+Teleporting into an active battle is also the reconnect story: a player whose
+app died mid-fight teleports back in rather than forfeiting.
+
+This does **not** conflict with pillar 1 — fights still resolve on real
+geography, just not always geography the player is standing on. What it does
+compete with is the walking loop, since cheap travel to every interesting place
+removes the reason to go outside. Something must stay exclusive to physical
+presence or the real map becomes decorative. The obvious candidates, none yet
+chosen:
+
+- encounters seed only near the player's real position;
+- new claims can only be staked where the player physically is;
+- some loot, discovery, or bestiary progress requires bodily presence.
+
+Note also that a residence claim is somebody's actual home. Sharing it with
+friends is the point, but it must not be visible to, or derivable by, anyone
+else, and it should never be exposed as coordinates where a place name would do.
+
 Two rules follow from GPS being noisy:
 
 - **Recentre the radius with hysteresis.** Only move the circle when the player
@@ -226,6 +264,7 @@ character and not with the job instance.
 | ATB turn order | not started | Speed stat charges the gauge |
 | Movement leash | not started | Radius travels with the player; GPS centres the circle, not the avatar |
 | Territories | not started | Residence + guild claims as coarse H3 cells; travel to/from/within |
+| Teleportation | not started | Low cost, between allowed regions and into active battles; doubles as reconnect |
 | Encounter seeding | not started | Shared vs per-player placement is still open |
 | Job pipeline | not started | Schema → data → CI validation → loader → migrations, per above |
 | Character sheet / stats | not started | D&D-flavoured; jobs drive stat growth |
@@ -274,7 +313,8 @@ launch, not a later polish item.
 <!-- Park undecided things here so runs don't silently decide them for you. -->
 
 Settled: battlefield is the real map, 1 m hex cells on H3 res 15, a movement
-radius that travels with the player plus residence and guild territories, party
+radius that travels with the player plus residence and guild territories,
+low-cost teleportation between allowed regions, party
 of player + optional pet + optional solo-only NPC companion, elevation from real
 terrain where available, ATB turn order, jobs as a data pipeline. Still open:
 
@@ -283,12 +323,21 @@ terrain where available, ATB turn order, jobs as a data pipeline. Still open:
   encounter started? Biggest remaining combat question.
 - **How big is the radius?** It, not the cell size, decides whether a fight is a
   readable tactical board or an open field. 10–15 m gives an FFT-sized map.
-- **Is territory travel instant or a fast-travel with a cost?** "Travel to/from"
-  reads as teleport; whether it costs time, resources, or a cooldown is an
-  economy decision that has not been made.
+- **What exactly is "low cost" teleportation?** Settled that it is cheap; not
+  settled whether the cost is currency, a cooldown, a per-session budget, or
+  some combination. This is the dial that decides whether walking still matters.
+- **What stays exclusive to physical presence?** Cheap travel to every
+  interesting place removes the reason to go outside. Pick at least one of:
+  encounters seeding only near the real position, claims stakeable only where
+  the player stands, or presence-gated loot and discovery.
+- **Does teleporting to another player's radius need their consent?** Arriving
+  uninvited at someone's live location is a social and a safety question, not
+  just a mechanical one.
 - **Territories make GPS spoofing profitable.** Claimable land plus travel to it
-  is a standing incentive to fake a location. Not urgent while the player base
-  is people you know, but it should be answered before open enrolment.
+  is a standing incentive to fake a location. Cheap teleportation between known
+  regions actually reduces the payoff — there is less to gain by faking a
+  position you could have travelled to — but staking a *new* claim somewhere you
+  are not is still worth spoofing for. Answer before open enrolment.
 - **Is the world shared** (everyone sees the same encounter at the same place)
   or per-player? Difference between needing a backend and not.
 - How much of a player's real location leaves the device, and where does it go?
