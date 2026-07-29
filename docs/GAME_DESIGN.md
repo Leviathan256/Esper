@@ -105,8 +105,10 @@ which reads correctly for a game played outdoors. But cell count scales with the
 square of the radius: a 10–15 m radius gives a 300–900 cell board, the same
 order as an FFT map, while a 100 m radius would be ~35,000 cells and no longer a
 tactical board at all. **The radius, not the cell size, is what keeps combat
-tactical.** Rendering needs zoom 20–21 (8.7 px and 17.5 px per cell); OSM
-Mapnik tiles stop at z19, so the base map will be overzoomed and blurry.
+tactical.** Rendering needs zoom 20–21 (8.7 px and 17.5 px per cell at mid
+latitudes), which is at or beyond the maximum the standard OSM raster layer
+serves — confirm the exact cap against whichever tile source is chosen, and
+expect an overzoomed, blurry base map at combat zoom either way.
 
 **Tile source — must change before launch.** OSM *data* is fine to use: it is
 ODbL, and the obligation is visible attribution (now rendered over the map).
