@@ -189,6 +189,43 @@ Note also that a residence claim is somebody's actual home. Sharing it with
 friends is the point, but it must not be visible to, or derivable by, anyone
 else, and it should never be exposed as coordinates where a place name would do.
 
+## Claiming territory
+
+Settled rules:
+
+1. An area can only be claimed after the player has been **active in it for at
+   least a week**.
+2. The player must be **physically present** to claim it. Teleporting there is
+   not enough.
+3. A player holds **exactly one claim at a time**.
+4. Claiming while already holding one offers three choices: **move** the
+   existing claim, **remove** it and start a new one, or **cancel**.
+5. Attunement does not survive leaving. Returning to a previously held area
+   means **another full week** of activity there first.
+
+Why these rules are load-bearing, so no run "streamlines" them away:
+
+- The week of activity plus physical presence is the **anti-spoofing design**.
+  Faking a single position is trivial; faking a week of plausible presence is
+  not. This is a far stronger defence than any client-side spoof detection, and
+  it should not be shortened for convenience.
+- Rule 2 is also the answer to what stays exclusive to being physically
+  somewhere. Teleportation reaches claims, but only real presence creates them.
+- Rule 5 stops claim-hopping: no cycling between two spots to hold the best of
+  both.
+
+Implementation constraints that follow:
+
+- **Time must come from a trusted source, not the device clock.** A week gate
+  enforced against a clock the player controls is not a gate at all.
+- **Activity is stored on-device as aggregated H3 cell counters, never as a raw
+  location trace.** Tracking a week of presence means holding a week of
+  someone's real movements; keep the minimum that answers "has this cell met the
+  threshold", and nothing that reconstructs a path.
+- Activity should accumulate at a **coarser resolution than the claim itself**
+  (a res-12 claim is only ~19 m across, smaller than the area someone
+  meaningfully "spends a week in"), then the claim is staked within it.
+
 Two rules follow from GPS being noisy:
 
 - **Recentre the radius with hysteresis.** Only move the circle when the player
@@ -264,6 +301,8 @@ character and not with the job instance.
 | ATB turn order | not started | Speed stat charges the gauge |
 | Movement leash | not started | Radius travels with the player; GPS centres the circle, not the avatar |
 | Territories | not started | Residence + guild claims as coarse H3 cells; travel to/from/within |
+| Claiming | not started | Week of activity + physical presence; one claim; re-attune to return |
+| Activity tracking | not started | On-device aggregated H3 counters, trusted clock, no raw traces |
 | Teleportation | not started | Low cost, between allowed regions and into active battles; doubles as reconnect |
 | Encounter seeding | not started | Shared vs per-player placement is still open |
 | Job pipeline | not started | Schema → data → CI validation → loader → migrations, per above |
@@ -326,10 +365,24 @@ terrain where available, ATB turn order, jobs as a data pipeline. Still open:
 - **What exactly is "low cost" teleportation?** Settled that it is cheap; not
   settled whether the cost is currency, a cooldown, a per-session budget, or
   some combination. This is the dial that decides whether walking still matters.
-- **What stays exclusive to physical presence?** Cheap travel to every
-  interesting place removes the reason to go outside. Pick at least one of:
-  encounters seeding only near the real position, claims stakeable only where
-  the player stands, or presence-gated loot and discovery.
+- **What else stays exclusive to physical presence?** Claim-staking now is
+  (see Claiming territory). Whether encounters also seed only near the real
+  position, and whether any loot or discovery is presence-gated, is still open —
+  and claiming alone is a weekly act, so it may not carry the walking loop.
+- **What does "active in an area" actually mean?** Time present, distinct days,
+  sessions, encounters fought, distance covered? Must the week be contiguous?
+  This single definition decides how claiming feels, and every implementation
+  will differ until it is written down.
+- **What is the difference between "move your claim" and "remove it and start
+  another"?** They are only distinct if a claim accrues something worth
+  carrying — stored items, structures, upgrades, history. Define what a claim
+  holds, and the two options separate on their own.
+- **Do claims expire?** Nothing currently reclaims land from a player who stops
+  playing. In a shared world with finite space, permanent claims eventually lock
+  the map up. Decay-on-inactivity is the obvious answer but has not been chosen.
+- **Do guild territories follow the same rules?** One-claim-at-a-time is written
+  for personal residences. Who stakes a guild claim, against whose attunement,
+  and how it interacts with members' own claims is undefined.
 - **Does teleporting to another player's radius need their consent?** Arriving
   uninvited at someone's live location is a social and a safety question, not
   just a mechanical one.
