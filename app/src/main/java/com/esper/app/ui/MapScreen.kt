@@ -1,6 +1,8 @@
 package com.esper.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -71,12 +75,27 @@ fun MapScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { mapView },
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-        )
+        ) {
+            AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+
+            // Visible attribution is required by the ODbL and by the OSM tile
+            // usage policy. It belongs over the map itself, not in an about
+            // screen, so it stays visible whenever tiles are on screen.
+            Text(
+                text = "© OpenStreetMap contributors",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Black,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp)
+                    .background(Color.White.copy(alpha = 0.7f))
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+            )
+        }
 
         Column(
             modifier = Modifier

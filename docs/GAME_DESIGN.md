@@ -108,6 +108,35 @@ tactical board at all. **The radius, not the cell size, is what keeps combat
 tactical.** Rendering needs zoom 20–21 (8.7 px and 17.5 px per cell); OSM
 Mapnik tiles stop at z19, so the base map will be overzoomed and blurry.
 
+**Tile source — must change before launch.** OSM *data* is fine to use: it is
+ODbL, and the obligation is visible attribution (now rendered over the map).
+Share-alike only applies if a derived *database* is distributed, which would
+become relevant if building footprints or elevation are ever extracted into
+game data.
+
+The public tile servers are a different matter. The app currently points at
+`tile.openstreetmap.org` via osmdroid's `MAPNIK` source, which is
+donation-funded community infrastructure with a
+[usage policy](https://operations.osmfoundation.org/policies/tiles/) that
+blocks heavy users without notice. Esper is close to a worst case for it:
+
+- a location-based game means constant panning by every player, which is heavy
+  use by definition;
+- 1 m cells want zoom 20–21, at or past what the standard layer serves;
+- prefetching and "download this area for later" are explicitly prohibited —
+  but a game played outdoors on patchy signal genuinely needs offline tiles.
+
+Being blocked would take the map away from every player simultaneously, with no
+warning. Move to a self-hosted source before real players arrive. Protomaps /
+PMTiles is the recommended option: a single-file archive served from any static
+host or CDN, no API key (so it satisfies the no-paid-services rule, unlike
+MapTiler or Stadia free tiers), and it makes offline caching a design choice
+rather than a policy breach.
+
+Until then: keep the identifying User-Agent osmdroid is configured with, honour
+cache headers, and **do not add prefetch, bulk download, or offline-area
+features against the OSM servers.**
+
 **Movement.** A radius of allowed territory travels with the player. The avatar
 moves freely within it; the player's GPS position sets where the circle is
 centred, *not* which cell the avatar occupies. This is what makes a 1 m cell
@@ -189,6 +218,7 @@ character and not with the job instance.
 | System | Status | Notes |
 | --- | --- | --- |
 | Map / world | implemented | osmdroid + OSM tiles, `ui/MapScreen.kt` |
+| Self-hosted tiles | **required before launch** | OSM's public servers block heavy use; Protomaps/PMTiles recommended |
 | Grid overlay on real map | not started | Pillar 1. H3 res 15 (~1 m hex) |
 | Elevation | not started | Real terrain data, keyless source, graceful flat fallback. ~30 m data gives tilt, not height tactics |
 | ATB turn order | not started | Speed stat charges the gauge |
@@ -216,6 +246,9 @@ These apply to every Claude run, whoever dispatched it:
 - Never require a player to walk somewhere to keep playing, and never route
   them onto roads, railways, water, or private property.
 - Content (jobs, monsters, abilities) is data validated in CI, not Kotlin.
+- Keep OpenStreetMap attribution visible wherever tiles are drawn.
+- No prefetch, bulk download, or offline-area feature while tiles still come
+  from the OSM Foundation's servers — their policy forbids it.
 - Existing player-facing features are not removed unless the request says to.
 - New dependencies are pinned to an explicit version.
 
