@@ -2,11 +2,11 @@ package com.esper.app.game
 
 import android.content.Context
 import com.esper.engine.character.CharacterState
+import com.esper.engine.character.SaveCodec
 import com.esper.engine.character.SaveStore
+import java.io.File
 
 /**
- * Placeholder. Filled in by the `android-core-and-map` work package.
- *
  * The `:app` side of the engine's [SaveStore] seam: plain `java.io` against
  * `filesDir/esper/character.json`, encoded by `SaveCodec`.
  *
@@ -16,11 +16,28 @@ import com.esper.engine.character.SaveStore
  */
 class GameStorage(private val context: Context) : SaveStore {
 
+    private val file: File
+        get() = File(File(context.filesDir, "esper"), "character.json")
+
     override fun load(): CharacterState? {
-        TODO("implemented by android-core-and-map")
+        val target = file
+        if (!target.exists()) return null
+        return try {
+            SaveCodec.decode(target.readText())
+        } catch (_: Exception) {
+            // A corrupt or unreadable save must not crash the app — treat it like
+            // "no save" so the player starts fresh instead of being locked out.
+            null
+        }
     }
 
     override fun save(state: CharacterState) {
-        TODO("implemented by android-core-and-map")
+        try {
+            val target = file
+            target.parentFile?.mkdirs()
+            target.writeText(SaveCodec.encode(state))
+        } catch (_: Exception) {
+            // Best-effort; losing a save write is better than crashing mid-fight.
+        }
     }
 }
