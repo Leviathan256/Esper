@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+        Location: encounters are seeded near the player's real position, and the
+        movement radius the avatar acts inside is centred on the GPS fix. Both are
+        core-loop mechanics (see docs/GAME_DESIGN.md, Combat > Movement). COARSE is
+        declared alongside FINE because Android 12+ lets the user grant approximate
+        accuracy only, and the leash circle is designed to absorb that error.
+        Nothing derived from a fix ever leaves the device.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 

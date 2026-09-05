@@ -40,6 +40,10 @@ import org.osmdroid.views.MapView
 fun MapScreen(
     onOpenClaude: () -> Unit,
     onOpenPrompts: () -> Unit,
+    // Wired up by the android-core-and-map work package, which adds the movement
+    // radius, the encounter marker and the buttons that call these.
+    onOpenEncounter: () -> Unit,
+    onOpenCharacterSheet: () -> Unit,
 ) {
     val context = LocalContext.current
 

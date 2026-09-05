@@ -1,0 +1,2 @@
+One monster per file: content/monsters/<id>.json. There is no index — adding a
+monster is adding one file. Schema and validator rules: ../schema/monster.schema.md

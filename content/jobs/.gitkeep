@@ -1,0 +1,2 @@
+One job per file: content/jobs/<id>.json. There is no index — adding a job is
+adding one file and nothing else. Schema and validator rules: ../schema/job.schema.md
