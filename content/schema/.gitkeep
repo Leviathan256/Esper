@@ -1,2 +1,0 @@
-Human-readable field-by-field docs for each content kind live here, alongside the
-validator in engine/src/main/kotlin/com/esper/engine/content/ContentValidator.kt.

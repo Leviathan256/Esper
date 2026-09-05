@@ -9,9 +9,9 @@ data class ContentCatalog(
 
     val monstersById: Map<String, MonsterDefinition> get() = monsters.associateBy { it.id }
 
-    fun job(id: String): JobDefinition? = TODO("implemented by engine-content")
+    fun job(id: String): JobDefinition? = jobsById[id]
 
-    fun monster(id: String): MonsterDefinition? = TODO("implemented by engine-content")
+    fun monster(id: String): MonsterDefinition? = monstersById[id]
 
     companion object {
         /** What the app falls back to when content fails to load, so it never crashes. */

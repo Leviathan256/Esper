@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "goblin",
+  "displayName": "Goblin",
+  "maxHp": 7,
+  "armorClass": 13,
+  "attackBonus": 4,
+  "damage": "1d6+2",
+  "speed": 7,
+  "moveRangeCells": 3,
+  "attackRangeCells": 1,
+  "xpReward": 50,
+  "jobPointsReward": 2,
+  "bestiaryText": "A vicious but cowardly raider. Fights in packs, flees alone."
+}
