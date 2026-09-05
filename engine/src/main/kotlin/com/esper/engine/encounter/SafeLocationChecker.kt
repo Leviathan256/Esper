@@ -16,5 +16,5 @@ fun interface SafeLocationChecker {
 
 /** The trivial MVP default: everywhere is safe. Replace before real players arrive. */
 object AlwaysSafe : SafeLocationChecker {
-    override fun isSafe(point: GeoPoint): Boolean = TODO("implemented by engine-encounter")
+    override fun isSafe(point: GeoPoint): Boolean = true
 }
