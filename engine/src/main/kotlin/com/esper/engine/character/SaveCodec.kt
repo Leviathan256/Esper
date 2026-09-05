@@ -1,5 +1,8 @@
 package com.esper.engine.character
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
 /**
  * Save serialisation.
  *
@@ -7,8 +10,16 @@ package com.esper.engine.character
  * degrades instead of crashing.
  */
 object SaveCodec {
-    fun encode(state: CharacterState): String = TODO("implemented by engine-character")
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
+    fun encode(state: CharacterState): String = json.encodeToString(state)
 
     /** Runs [SaveMigrations.migrate] first. */
-    fun decode(text: String): CharacterState = TODO("implemented by engine-character")
+    fun decode(text: String): CharacterState {
+        val migrated = SaveMigrations.migrate(text)
+        return json.decodeFromString<CharacterState>(migrated)
+    }
 }

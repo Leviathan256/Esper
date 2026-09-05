@@ -15,5 +15,9 @@ object CharacterFactory {
     )
 
     fun newCharacter(name: String, startingJob: JobDefinition): CharacterState =
-        TODO("implemented by engine-character")
+        CharacterState(
+            name = name,
+            baseScores = STARTING_SCORES,
+            currentJobId = startingJob.id,
+        )
 }
