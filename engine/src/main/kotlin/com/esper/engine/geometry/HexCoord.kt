@@ -1,5 +1,7 @@
 package com.esper.engine.geometry
 
+import kotlin.math.abs
+
 /**
  * Axial hex coordinate.
  *
@@ -11,12 +13,16 @@ data class HexCoord(val q: Int, val r: Int) {
     val s: Int get() = -q - r
 
     /** Hex distance: `(|dq| + |dr| + |dq+dr|) / 2`. */
-    fun distanceTo(other: HexCoord): Int = TODO("implemented by engine-geometry")
+    fun distanceTo(other: HexCoord): Int {
+        val dq = other.q - q
+        val dr = other.r - r
+        return (abs(dq) + abs(dr) + abs(dq + dr)) / 2
+    }
 
     /** The 6 adjacent cells, in [DIRECTIONS] order. */
-    fun neighbors(): List<HexCoord> = TODO("implemented by engine-geometry")
+    fun neighbors(): List<HexCoord> = DIRECTIONS.map { this + it }
 
-    operator fun plus(other: HexCoord): HexCoord = TODO("implemented by engine-geometry")
+    operator fun plus(other: HexCoord): HexCoord = HexCoord(q + other.q, r + other.r)
 
     companion object {
         val ORIGIN: HexCoord = HexCoord(0, 0)

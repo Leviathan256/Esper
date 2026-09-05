@@ -1,6 +1,10 @@
 package com.esper.engine.geometry
 
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.math.round
 
 /**
  * Pointy-top hex geometry in metres.
@@ -23,7 +27,12 @@ object HexMetrics {
      * north = R * (3/2 * r)
      * ```
      */
-    fun axialToLocal(hex: HexCoord): LocalMetres = TODO("implemented by engine-geometry")
+    fun axialToLocal(hex: HexCoord): LocalMetres {
+        val r = circumradiusMetres
+        val east = r * (sqrt(3.0) * hex.q + sqrt(3.0) / 2.0 * hex.r)
+        val north = r * (1.5 * hex.r)
+        return LocalMetres(east, north)
+    }
 
     /**
      * ```
@@ -32,8 +41,45 @@ object HexMetrics {
      * ```
      * then cube-round.
      */
-    fun localToNearestAxial(local: LocalMetres): HexCoord = TODO("implemented by engine-geometry")
+    fun localToNearestAxial(local: LocalMetres): HexCoord {
+        val r = circumradiusMetres
+        val qFrac = (sqrt(3.0) / 3.0 * local.east - 1.0 / 3.0 * local.north) / r
+        val rFrac = (2.0 / 3.0 * local.north) / r
+        return cubeRound(qFrac, rFrac)
+    }
 
     /** 6 corners at angles 60°*i - 30°, i = 0..5, counter-clockwise. */
-    fun cornersLocal(hex: HexCoord): List<LocalMetres> = TODO("implemented by engine-geometry")
+    fun cornersLocal(hex: HexCoord): List<LocalMetres> {
+        val center = axialToLocal(hex)
+        val r = circumradiusMetres
+        return (0 until 6).map { i ->
+            val angle = Math.toRadians(60.0 * i - 30.0)
+            LocalMetres(center.east + r * cos(angle), center.north + r * sin(angle))
+        }
+    }
+
+    /** Rounds fractional axial coordinates to the nearest hex via the cube-coordinate method. */
+    private fun cubeRound(qFrac: Double, rFrac: Double): HexCoord {
+        val xFrac = qFrac
+        val zFrac = rFrac
+        val yFrac = -xFrac - zFrac
+
+        var rx = round(xFrac)
+        var ry = round(yFrac)
+        var rz = round(zFrac)
+
+        val xDiff = abs(rx - xFrac)
+        val yDiff = abs(ry - yFrac)
+        val zDiff = abs(rz - zFrac)
+
+        if (xDiff > yDiff && xDiff > zDiff) {
+            rx = -ry - rz
+        } else if (yDiff > zDiff) {
+            ry = -rx - rz
+        } else {
+            rz = -rx - ry
+        }
+
+        return HexCoord(rx.toInt(), rz.toInt())
+    }
 }
