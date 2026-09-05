@@ -1,5 +1,7 @@
 package com.esper.engine.dice
 
+import java.util.Random as JavaRandom
+
 /**
  * The only source of randomness in the engine.
  *
@@ -14,16 +16,27 @@ interface RandomSource {
     fun nextDouble(): Double
 }
 
-/** Deterministic. Every test uses this. */
+/**
+ * Deterministic. Every test uses this.
+ *
+ * Backed by `java.util.Random`, whose per-seed sequence is specified by the JDK
+ * (a 48-bit linear congruential generator) and therefore stable across JVMs and
+ * Kotlin versions — a test can pin a literal expected sequence and trust it stays
+ * pinned.
+ */
 class SeededRandom(seed: Long) : RandomSource {
-    override fun nextInt(bound: Int): Int = TODO("implemented by engine-dice")
+    private val random = JavaRandom(seed)
 
-    override fun nextDouble(): Double = TODO("implemented by engine-dice")
+    override fun nextInt(bound: Int): Int = random.nextInt(bound)
+
+    override fun nextDouble(): Double = random.nextDouble()
 }
 
 /** The one non-deterministic source. Used only by the running app. */
 object SystemRandom : RandomSource {
-    override fun nextInt(bound: Int): Int = TODO("implemented by engine-dice")
+    private val random = JavaRandom()
 
-    override fun nextDouble(): Double = TODO("implemented by engine-dice")
+    override fun nextInt(bound: Int): Int = random.nextInt(bound)
+
+    override fun nextDouble(): Double = random.nextDouble()
 }
