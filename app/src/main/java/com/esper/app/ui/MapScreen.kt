@@ -30,6 +30,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.esper.app.core.MapState
 import com.esper.app.game.GameSession
 import com.esper.app.game.LocationProvider
@@ -102,6 +105,18 @@ fun MapScreen(
         }
     }
 
+    // Move the camera to the first leash centre we get. osmdroid's animateTo has
+    // a pre-layout replay path, so this is safe even if the MapView has not been
+    // laid out yet. Only the first one: afterwards the player owns the camera.
+    var cameraCentred by remember(mapView) { mutableStateOf(false) }
+    LaunchedEffect(GameSession.radiusCenter) {
+        val center = GameSession.radiusCenter ?: return@LaunchedEffect
+        if (!cameraCentred) {
+            cameraCentred = true
+            mapView.controller.animateTo(OsmGeoPoint(center.lat, center.lon), 19.0, 500L)
+        }
+    }
+
     // Location permission. Requested once on entry; the game stays playable
     // either way (see GameSession.useFallbackCenter below) because no player may
     // be required to grant a permission in order to keep playing.
@@ -131,7 +146,12 @@ fun MapScreen(
     // is playable before any GPS fix (or permission) arrives, then load or
     // create the character.
     LaunchedEffect(Unit) {
-        GameSession.useFallbackCenter(GeoPoint(MapState.latitude, MapState.longitude))
+        // Only seed from MapState when it holds a real position (i.e. the player
+        // panned the map on an earlier visit). Its 0/0 default is "unknown", not
+        // a location — seeding there strands the encounter in the Gulf of Guinea.
+        if (MapState.latitude != 0.0 || MapState.longitude != 0.0) {
+            GameSession.useFallbackCenter(GeoPoint(MapState.latitude, MapState.longitude))
+        }
         GameSession.ensureCharacter(context)
         if (!permissionGranted) {
             GameSession.locationDenied = true
@@ -164,14 +184,38 @@ fun MapScreen(
             }
         }
         mapView.addMapListener(listener)
-        mapView.onResume()
 
         onDispose {
-            locationProvider.stop()
             mapView.removeMapListener(listener)
-            mapView.onPause()
             mapView.onDetach()
         }
+    }
+
+    // A composition survives onStop (it's torn down at onDestroy), so without
+    // this the GPS registration and osmdroid's tile machinery would keep running
+    // in the background — indefinitely, since nothing else stops them — every
+    // time the player backgrounds the app.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, permissionGranted) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    mapView.onResume()
+                    if (permissionGranted) {
+                        locationProvider.start { lat, lon, accuracy ->
+                            GameSession.onLocationFix(lat, lon, accuracy)
+                        }
+                    }
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    locationProvider.stop()
+                    mapView.onPause()
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Starts location once permission is granted — immediately if it already
@@ -257,6 +301,12 @@ fun MapScreen(
                 text = "Location: $locationStatus",
                 style = MaterialTheme.typography.bodySmall,
             )
+            if (GameSession.radiusCenter == null) {
+                Text(
+                    text = "Waiting for a location fix — or pan the map to where you want to play.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             val encounterStatus = GameSession.encounter?.let { encounter ->
                 val names = encounter.monsterIds.joinToString(", ")
                 val distance = GameSession.distanceToEncounterMetres()
@@ -282,7 +332,7 @@ fun MapScreen(
                 Button(
                     onClick = {
                         GameSession.beginBattle(context)
-                        onOpenEncounter()
+                        if (GameSession.engine != null) onOpenEncounter()
                     },
                     enabled = GameSession.encounter != null,
                 ) { Text("Enter encounter") }
@@ -297,4 +347,12 @@ private fun publish(mapView: MapView) {
     MapState.latitude = center.latitude
     MapState.longitude = center.longitude
     MapState.zoom = mapView.zoomLevelDouble
+    // Playable without a location grant: once the player has moved the camera
+    // to somewhere real, anchor the leash there if nothing else has yet.
+    // useFallbackCenter is a no-op once a centre exists, so a real GPS fix
+    // always wins. Guarded on 0/0 so osmdroid's own initial scroll event from
+    // the programmatic setCenter cannot re-seed Null Island.
+    if (center.latitude != 0.0 || center.longitude != 0.0) {
+        GameSession.useFallbackCenter(GeoPoint(center.latitude, center.longitude))
+    }
 }

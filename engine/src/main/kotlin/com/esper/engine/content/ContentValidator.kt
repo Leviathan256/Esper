@@ -208,7 +208,12 @@ object ContentValidator {
     private fun parseDiceLoosely(text: String): Pair<Int, Int>? {
         val match = DiceExpr.PATTERN.matchEntire(text)
         if (match != null) {
-            return match.groupValues[1].toInt() to match.groupValues[2].toInt()
+            // toIntOrNull, not toInt: the regex accepts any run of digits, so a
+            // count or sides past Int.MAX_VALUE must be reported as an issue, not
+            // thrown — validate() promises every issue, never an exception.
+            val count = match.groupValues[1].toIntOrNull() ?: return null
+            val sides = match.groupValues[2].toIntOrNull() ?: return null
+            return count to sides
         }
         if (BARE_INTEGER.matches(text)) {
             return 0 to 0

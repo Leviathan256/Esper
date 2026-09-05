@@ -54,10 +54,10 @@ data class DiceExpr(val count: Int, val sides: Int, val modifier: Int) {
                 val (countText, sidesText, modifierText) = diceMatch.destructured
                 val count = countText.toIntOrNull() ?: return null
                 val sides = sidesText.toIntOrNull() ?: return null
-                val modifier = modifierText
-                    .replace(" ", "")
-                    .takeIf { it.isNotEmpty() }
-                    ?.toIntOrNull() ?: 0
+                // Absent modifier means 0; a modifier that is present but does not
+                // fit in an Int must fail the parse, not be silently discarded.
+                val modifierRaw = modifierText.replace(" ", "")
+                val modifier = if (modifierRaw.isEmpty()) 0 else (modifierRaw.toIntOrNull() ?: return null)
                 return DiceExpr(count = count, sides = sides, modifier = modifier)
             }
             val bareMatch = BARE_INT_PATTERN.matchEntire(text) ?: return null

@@ -16,12 +16,21 @@ import org.osmdroid.views.overlay.Overlay
  *
  * A 12 m-radius board is 469 hexes (`3n(n+1)+1` at n = 12); one [Overlay] building
  * one [Path] per draw pass is cheap, where 469 individual `Polygon` overlays would
- * not be. Highlighted sets (legal moves, attackable targets, the current actor,
- * living units) are exposed as mutable vars — the composable mutates them and
- * must call `mapView.invalidate()` afterwards, since this overlay has no way to
- * request a redraw on its own.
+ * not be. Cell corners are projected once into [cornerCache] rather than
+ * recomputed from [HexBoard.cornersGeo] on every draw. Highlighted sets (legal
+ * moves, attackable targets, the current actor, living units) are exposed as
+ * mutable vars — the composable mutates them and must call `mapView.invalidate()`
+ * afterwards, since this overlay has no way to request a redraw on its own.
  */
 class HexGridOverlay(private val board: HexBoard) : Overlay() {
+
+    // Cell corners are fixed relative to the board anchor, so project metres ->
+    // lat/lon exactly once. Without this, every frame of a pan rebuilt two
+    // 6-element lists plus 6 OsmGeoPoints per cell across all 469 cells.
+    private val cornerCache: Map<HexCoord, Array<OsmGeoPoint>> =
+        board.cells.associateWith { cell ->
+            board.cornersGeo(cell).map { OsmGeoPoint(it.lat, it.lon) }.toTypedArray()
+        }
 
     /** Cells the current actor could legally move to this turn. */
     var legalMoveCells: Set<HexCoord> = emptySet()
@@ -65,7 +74,7 @@ class HexGridOverlay(private val board: HexBoard) : Overlay() {
         strokeWidth = 5f
     }
 
-    /** Reused across every corner of every cell so drawing 469 hexes allocates nothing. */
+    /** Reused across every corner of every cell, so a draw pass allocates only the Paths. */
     private val reusablePoint = Point()
 
     override fun draw(canvas: Canvas, projection: Projection) {
@@ -102,9 +111,10 @@ class HexGridOverlay(private val board: HexBoard) : Overlay() {
     }
 
     private fun appendCellOutline(path: Path, cell: HexCoord, projection: Projection) {
-        val corners = board.cornersGeo(cell)
-        corners.forEachIndexed { index, geo ->
-            val screenPoint = projection.toPixels(OsmGeoPoint(geo.lat, geo.lon), reusablePoint)
+        val corners = cornerCache[cell]
+            ?: board.cornersGeo(cell).map { OsmGeoPoint(it.lat, it.lon) }.toTypedArray()
+        for (index in corners.indices) {
+            val screenPoint = projection.toPixels(corners[index], reusablePoint)
             if (index == 0) {
                 path.moveTo(screenPoint.x.toFloat(), screenPoint.y.toFloat())
             } else {

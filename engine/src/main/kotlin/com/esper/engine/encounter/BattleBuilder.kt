@@ -48,6 +48,14 @@ object BattleBuilder {
 
         val ringCells = HexGrid.ring(HexCoord.ORIGIN, MONSTER_START_RING_CELLS).toList()
         val monsterCount = encounter.monsterIds.size
+        // Ring 4 has 24 cells. Past that, `ringCells.size / monsterCount` floors to 0
+        // and every monster would be stacked on ringCells[0]; refuse loudly instead
+        // of silently building a broken board. (build() already uses error() for an
+        // unknown monster id, so failing fast here is the established idiom.)
+        require(monsterCount <= ringCells.size) {
+            "BattleBuilder: $monsterCount monsters exceed the ${ringCells.size} cells on ring " +
+                "$MONSTER_START_RING_CELLS"
+        }
         val step = if (monsterCount > 0) ringCells.size / monsterCount else 0
         val monsterUnits = encounter.monsterIds.mapIndexed { index, monsterId ->
             val definition = catalog.monster(monsterId)

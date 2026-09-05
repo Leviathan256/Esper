@@ -133,16 +133,29 @@ object GameSession {
         storage.save(created)
     }
 
-    /** Seeds one encounter near [radiusCenter] if there isn't an active one already. */
+    /** Seeds one encounter near [radiusCenter], re-seeding if the leash has moved away from it. */
     fun ensureEncounter(context: Context) {
-        if (encounter != null) return
         val center = radiusCenter ?: return
 
+        val existing = encounter
+        if (existing != null) {
+            // Never move the encounter out from under a fight in progress.
+            if (battle != null) return
+            val distance = LocalTangentPlane(center).distanceMetres(center, existing.anchor)
+            // A fallback centre replaced by a real fix can jump arbitrarily far;
+            // an encounter left behind there is unreachable for the whole session.
+            if (distance <= radiusMetres * RESEED_DISTANCE_FACTOR) return
+        }
+
         val catalog = ContentRepository.catalog(context)
-        if (catalog.monsters.isEmpty()) return
+        if (catalog.monsters.isEmpty()) {
+            contentError = ContentRepository.lastError ?: "No monsters are available."
+            return
+        }
 
         val seeder = EncounterSeeder(catalog.monsters)
-        encounter = seeder.seedNear(center, SystemRandom)
+        // Keep the old encounter if seeding failed rather than dropping to null.
+        encounter = seeder.seedNear(center, SystemRandom) ?: existing
     }
 
     /** Straight-line distance from the leash centre to the active encounter, if any. */
@@ -152,8 +165,23 @@ object GameSession {
         return LocalTangentPlane(center).distanceMetres(center, enc.anchor)
     }
 
-    /** Builds a [Battle] from the active encounter and constructs its [CombatEngine]. */
+    /**
+     * Builds a [Battle] from the active encounter and constructs its [CombatEngine].
+     *
+     * An in-flight fight is resumed, never restarted: if [engine] already holds
+     * one that has not ended, this returns without touching it. If it already
+     * ended (the player left combat by system back rather than the result
+     * card's button), it is settled first via [endBattle] so its rewards are
+     * never silently lost.
+     */
     fun beginBattle(context: Context) {
+        val existing = engine
+        if (existing != null) {
+            val finished = existing.result()
+            if (finished == null) return
+            endBattle(finished, context)
+        }
+
         val enc = encounter ?: return
         ensureCharacter(context)
         val currentCharacter = character ?: return
@@ -190,4 +218,7 @@ object GameSession {
         engine = null
         encounter = null
     }
+
+    /** Re-seed once the encounter is further than this many leash radii away. */
+    private const val RESEED_DISTANCE_FACTOR = 5.0
 }

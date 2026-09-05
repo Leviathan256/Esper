@@ -1,5 +1,6 @@
 package com.esper.app.ui.game
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +30,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.esper.app.game.ContentRepository
 import com.esper.app.game.GameSession
 import com.esper.engine.combat.BattleResult
@@ -163,11 +167,13 @@ private fun CombatBattleScreen(engine: CombatEngine, onFinished: () -> Unit) {
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            // maxZoomLevel BEFORE setZoom: MapView.setZoomLevel clamps against
+            // getMaxZoomLevel(), which falls back to MAPNIK's own maximum of 19
+            // until this is set — so setting it afterwards silently loses a level.
+            // A blurry over-zoomed base map past 19 is a documented accepted cost.
+            maxZoomLevel = 21.0
             controller.setZoom(20.0)
             controller.setCenter(OsmGeoPoint(board.anchor.lat, board.anchor.lon))
-            // MAPNIK caps out at zoom 19; a blurry over-zoomed base map under the
-            // hex overlay past that is a documented accepted cost, not a bug.
-            maxZoomLevel = 21.0
         }
     }
 
@@ -210,15 +216,26 @@ private fun CombatBattleScreen(engine: CombatEngine, onFinished: () -> Unit) {
         }
     }
 
-    // Same lifecycle handling as MapScreen's working DisposableEffect: two live
-    // MapViews across two screens is the main integration risk here, so this
-    // copies the pattern rather than inventing a new one.
     DisposableEffect(mapView) {
-        mapView.onResume()
         onDispose {
-            mapView.onPause()
             mapView.onDetach()
         }
+    }
+
+    // A composition survives onStop (it's torn down at onDestroy), so without
+    // this osmdroid's tile machinery would keep running in the background every
+    // time the player backgrounds the app mid-fight.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Keeps the overlay's highlighted sets in sync with combat state, then asks
@@ -240,6 +257,14 @@ private fun CombatBattleScreen(engine: CombatEngine, onFinished: () -> Unit) {
 
     val isPlayerTurn = result == null &&
         unitsSnapshot.find { it.id == currentActorId }?.playerControlled == true
+
+    // Settle the battle on ANY exit, not just the result card's button: a won
+    // fight left by system back must still award xp, job points and the bestiary
+    // entry. The toolbar arrow routes through this too (see MainActivity).
+    BackHandler {
+        result?.let { GameSession.endBattle(it, context) }
+        onFinished()
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Box(

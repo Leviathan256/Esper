@@ -2,6 +2,7 @@ package com.esper.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -76,6 +77,7 @@ private fun EsperApp() {
 private fun EsperScaffold(navController: NavHostController, settings: Settings) {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val onMap = currentRoute == Routes.MAP
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
     Scaffold(
         topBar = {
@@ -94,7 +96,18 @@ private fun EsperScaffold(navController: NavHostController, settings: Settings) 
                 },
                 navigationIcon = {
                     if (!onMap) {
-                        IconButton(onClick = { navController.popBackStack() }) {
+                        IconButton(
+                            onClick = {
+                                // Through the dispatcher, not popBackStack(), so a
+                                // screen's BackHandler (combat settles its battle)
+                                // sees this exactly like the system back gesture.
+                                if (backDispatcher != null) {
+                                    backDispatcher.onBackPressed()
+                                } else {
+                                    navController.popBackStack()
+                                }
+                            },
+                        ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }

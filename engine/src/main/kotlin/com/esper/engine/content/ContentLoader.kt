@@ -67,7 +67,13 @@ object ContentLoader {
             }
         }
 
-        issues += ContentValidator.validate(jobs, monsters)
+        try {
+            issues += ContentValidator.validate(jobs, monsters)
+        } catch (e: RuntimeException) {
+            // load() promises ContentValidationException; never let another
+            // exception type out of the content path.
+            issues += ContentIssue("content", "validator failed: ${e.message ?: e::class.java.name}")
+        }
 
         if (issues.isNotEmpty()) {
             throw ContentValidationException(issues)

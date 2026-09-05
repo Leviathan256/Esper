@@ -3,8 +3,10 @@ package com.esper.app.game
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Bundle
 import androidx.core.content.ContextCompat
 
 /**
@@ -42,8 +44,25 @@ class LocationProvider(private val context: Context) {
         val manager = locationManager ?: return
         if (!hasPermission()) return
 
-        val listener = LocationListener { location ->
-            onFix(location.latitude, location.longitude, location.accuracy)
+        // Never register twice: a second start() would orphan the first listener,
+        // which stop() could then no longer remove.
+        stop()
+
+        // Explicit object, not a SAM lambda: onStatusChanged/onProviderEnabled/
+        // onProviderDisabled only became `default` methods in API 30, and minSdk
+        // is 26 — a SAM-converted listener leaves them abstract and ART throws
+        // AbstractMethodError the first time the framework dispatches one.
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                onFix(location.latitude, location.longitude, location.accuracy)
+            }
+
+            @Deprecated("Required by LocationListener below API 30")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
+
+            override fun onProviderEnabled(provider: String) = Unit
+
+            override fun onProviderDisabled(provider: String) = Unit
         }
         activeListener = listener
 

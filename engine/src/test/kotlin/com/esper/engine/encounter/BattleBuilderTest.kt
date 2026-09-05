@@ -13,6 +13,7 @@ import com.esper.engine.stats.StatCalculator
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class BattleBuilderTest {
 
@@ -152,5 +153,18 @@ class BattleBuilderTest {
         assertEquals(goblin.attackRangeCells, goblinUnit.stats.attackRangeCells)
         assertEquals(goblin.id, goblinUnit.sourceId)
         assertTrue(!goblinUnit.playerControlled)
+    }
+
+    @Test
+    fun `a full start ring still gets distinct cells and an overfull one is refused`() {
+        val ringSize = HexGrid.ring(HexCoord.ORIGIN, BattleBuilder.MONSTER_START_RING_CELLS).size
+        val full = Encounter(id = "enc-full", anchor = anchor(), monsterIds = List(ringSize) { "goblin" })
+        val battle = BattleBuilder.build(full, character(), catalog)
+        val positions = battle.units.filterNot { it.playerControlled }.map { it.position }
+        assertEquals(ringSize, positions.size)
+        assertEquals(ringSize, positions.toSet().size, "monster positions must be distinct")
+
+        val overfull = Encounter(id = "enc-over", anchor = anchor(), monsterIds = List(ringSize + 1) { "goblin" })
+        assertThrows<IllegalArgumentException> { BattleBuilder.build(overfull, character(), catalog) }
     }
 }

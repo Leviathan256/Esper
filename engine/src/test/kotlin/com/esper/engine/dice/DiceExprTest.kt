@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class DiceExprTest {
 
@@ -101,6 +102,15 @@ class DiceExprTest {
         assertEquals("1d6-1", DiceExpr(1, 6, -1).toString())
         assertEquals(DiceExpr(1, 8, 2), DiceExpr.parse(DiceExpr(1, 8, 2).toString()))
         assertEquals(DiceExpr.ZERO, DiceExpr.parse(DiceExpr.ZERO.toString()))
+    }
+
+    @Test
+    fun `a modifier that overflows Int fails the parse instead of being dropped`() {
+        assertNull(DiceExpr.parseOrNull("1d6+99999999999"))
+        assertNull(DiceExpr.parseOrNull("1d6-99999999999"))
+        assertThrows<IllegalArgumentException> { DiceExpr.parse("1d6+99999999999") }
+        // Absent modifier still parses as 0.
+        assertEquals(DiceExpr(1, 6, 0), DiceExpr.parse("1d6"))
     }
 
     @Test

@@ -221,6 +221,22 @@ class ContentValidatorTest {
     }
 
     @Test
+    fun `dice values that overflow Int are reported as issues, not thrown`() {
+        val issues = ContentValidator.validate(
+            listOf(job(hitDie = "1d99999999999")),
+            listOf(monster(damage = "99999999999d6")),
+        )
+        assertTrue(
+            issues.any { it.source == "monster:goblin" && it.message.contains("is not valid dice notation") },
+            issues.toString(),
+        )
+        assertTrue(
+            issues.any { it.source == "job:squire" && it.message.contains("is not valid dice notation") },
+            issues.toString(),
+        )
+    }
+
+    @Test
     fun `multiple problems in one load produce multiple issues`() {
         val badJob = job(
             id = "",
