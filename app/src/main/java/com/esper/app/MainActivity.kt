@@ -2,11 +2,13 @@ package com.esper.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -30,6 +32,8 @@ import com.esper.app.ui.ClaudeScreen
 import com.esper.app.ui.MapScreen
 import com.esper.app.ui.PromptsScreen
 import com.esper.app.ui.SettingsScreen
+import com.esper.app.ui.game.CharacterSheetScreen
+import com.esper.app.ui.game.CombatScreen
 import org.osmdroid.config.Configuration
 
 class MainActivity : ComponentActivity() {
@@ -54,6 +58,8 @@ class MainActivity : ComponentActivity() {
 
 private object Routes {
     const val MAP = "map"
+    const val COMBAT = "combat"
+    const val SHEET = "sheet"
     const val CLAUDE = "claude"
     const val PROMPTS = "prompts"
     const val SETTINGS = "settings"
@@ -71,6 +77,7 @@ private fun EsperApp() {
 private fun EsperScaffold(navController: NavHostController, settings: Settings) {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val onMap = currentRoute == Routes.MAP
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
 
     Scaffold(
         topBar = {
@@ -78,6 +85,8 @@ private fun EsperScaffold(navController: NavHostController, settings: Settings) 
                 title = {
                     Text(
                         text = when (currentRoute) {
+                            Routes.COMBAT -> "Encounter"
+                            Routes.SHEET -> "Character"
                             Routes.CLAUDE -> "Ask Claude"
                             Routes.PROMPTS -> "Prompts"
                             Routes.SETTINGS -> "Settings"
@@ -87,12 +96,28 @@ private fun EsperScaffold(navController: NavHostController, settings: Settings) 
                 },
                 navigationIcon = {
                     if (!onMap) {
-                        IconButton(onClick = { navController.popBackStack() }) {
+                        IconButton(
+                            onClick = {
+                                // Through the dispatcher, not popBackStack(), so a
+                                // screen's BackHandler (combat settles its battle)
+                                // sees this exactly like the system back gesture.
+                                if (backDispatcher != null) {
+                                    backDispatcher.onBackPressed()
+                                } else {
+                                    navController.popBackStack()
+                                }
+                            },
+                        ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
                 },
                 actions = {
+                    if (currentRoute != Routes.SHEET) {
+                        IconButton(onClick = { navController.navigate(Routes.SHEET) }) {
+                            Icon(Icons.Filled.Person, contentDescription = "Character")
+                        }
+                    }
                     if (currentRoute != Routes.CLAUDE) {
                         IconButton(onClick = { navController.navigate(Routes.CLAUDE) }) {
                             Icon(Icons.Filled.AutoAwesome, contentDescription = "Ask Claude")
@@ -116,7 +141,15 @@ private fun EsperScaffold(navController: NavHostController, settings: Settings) 
                 MapScreen(
                     onOpenClaude = { navController.navigate(Routes.CLAUDE) },
                     onOpenPrompts = { navController.navigate(Routes.PROMPTS) },
+                    onOpenEncounter = { navController.navigate(Routes.COMBAT) },
+                    onOpenCharacterSheet = { navController.navigate(Routes.SHEET) },
                 )
+            }
+            composable(Routes.COMBAT) {
+                CombatScreen(onFinished = { navController.popBackStack() })
+            }
+            composable(Routes.SHEET) {
+                CharacterSheetScreen()
             }
             composable(Routes.CLAUDE) {
                 ClaudeScreen(

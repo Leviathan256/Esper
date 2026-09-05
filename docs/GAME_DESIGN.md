@@ -112,6 +112,20 @@ latitudes), which is at or beyond the maximum the standard OSM raster layer
 serves — confirm the exact cap against whichever tile source is chosen, and
 expect an overzoomed, blurry base map at combat zoom either way.
 
+**MVP deviation: a local hex grid, not H3.** The recommendation above stands for
+territory work, and the reasons for it — globally stable cell IDs and a cheap
+parent lookup for "is this inside guild territory?" — are unaffected. But
+`h3-java` is JNI, and this project's development environment has no Android SDK
+and no emulator, so **there is no way to verify that a native library actually
+loads on a device before shipping it.** The MVP therefore uses a pure-Kotlin
+axial hex grid (`engine/geometry`), 1 m across flats, projected onto real
+coordinates by a local east/north tangent plane anchored at the encounter. It is
+fully unit-tested, adds no per-ABI native library to the APK, and matches H3 res
+15's cell size closely enough that combat plays the same. **H3 is deferred to
+territory work, where the hierarchy is the actual reason to adopt it** — and
+adopting it there does not require changing combat, because the grid lives
+behind `HexBoard`.
+
 **Tile source — must change before launch.** OSM *data* is fine to use: it is
 ODbL, and the obligation is visible attribution (now rendered over the map).
 Share-alike only applies if a derived *database* is distributed, which would
@@ -141,11 +155,30 @@ Until then: keep the identifying User-Agent osmdroid is configured with, honour
 cache headers, and **do not add prefetch, bulk download, or offline-area
 features against the OSM servers.**
 
+**Encounter placement has no safety check — required before launch.** The design
+forbids seeding or routing players onto roads, railways, water, or private
+property. The MVP ships a `SafeLocationChecker` seam with a trivial always-safe
+default, because no geodata source for it is wired up and adding one is a new
+dependency. This is a real gap against the Combat safety rules, not a resolved
+item, and it belongs alongside the self-hosted tile source as a blocker before
+real players arrive. Mitigating factors today: encounters seed only 6–10 m from
+the player, and **no cell ever has to be physically walked to** — combat movement
+is entirely on-screen.
+
 **Movement.** A radius of allowed territory travels with the player. The avatar
 moves freely within it; the player's GPS position sets where the circle is
 centred, *not* which cell the avatar occupies. This is what makes a 1 m cell
 workable — GPS error moves the circle, and the avatar is placed deliberately by
 touch, so jitter never teleports the avatar between cells.
+
+**Why the app asks for location.** `ACCESS_FINE_LOCATION` (with
+`ACCESS_COARSE_LOCATION` alongside, for Android 12+'s approximate-only grant) is
+requested because two core-loop mechanics need it: **encounters seed near the
+player's real position**, and **the movement radius the avatar acts inside is
+centred on the GPS fix**. Nothing derived from a fix leaves the device. If the
+player declines, the game stays playable — the radius anchors to the map view
+instead — because no player may be required to grant a permission, or take a
+walk, in order to keep playing.
 
 Beyond the moving radius, the avatar may also travel to, from, and within:
 
@@ -401,10 +434,10 @@ character and not with the job instance.
 | --- | --- | --- |
 | Map / world | implemented | osmdroid + OSM tiles, `ui/MapScreen.kt` |
 | Self-hosted tiles | **required before launch** | OSM's public servers block heavy use; Protomaps/PMTiles recommended |
-| Grid overlay on real map | not started | Pillar 1. H3 res 15 (~1 m hex) |
+| Grid overlay on real map | MVP | Pure-Kotlin axial hex, 1 m across flats, projected onto lat/lon by a local tangent plane. **Deviation from H3 — see Combat > Grid.** `engine/geometry` |
 | Elevation | not started | Real terrain data, keyless source, graceful flat fallback. ~30 m data gives tilt, not height tactics |
-| ATB turn order | not started | Speed stat charges the gauge |
-| Movement leash | not started | Radius travels with the player; GPS centres the circle, not the avatar |
+| ATB turn order | MVP | Discrete gauge ticks at `speed`; flat action cost. `engine/combat/CombatEngine.kt` |
+| Movement leash | MVP | 12 m radius; GPS centres the circle with hysteresis, never the avatar |
 | Territories | not started | Residence + guild claims as coarse H3 cells; travel to/from/within |
 | Claiming | not started | Week of encounters + physical presence; one claim; re-attune to return |
 | Structures | not started | Recovery, storage, upgrades, history; carried by a move, lost by a remove |
@@ -412,14 +445,15 @@ character and not with the job instance.
 | Titles | not started | Attuned like land; fade on inactivity, claimable by another |
 | Activity tracking | not started | Encounter counters per H3 cell at the player's real position, trusted clock, no raw traces |
 | Teleportation | not started | Low cost, between allowed regions and into active battles; doubles as reconnect |
-| Encounter seeding | not started | Shared vs per-player placement is still open |
-| Job pipeline | not started | Schema → data → CI validation → loader → migrations, per above |
-| Character sheet / stats | not started | D&D-flavoured; jobs drive stat growth |
+| Encounter seeding | MVP | Per-player, on-device, 6–10 m from the radius centre. Shared-vs-per-player placement still open. **No safety geodata yet — see below** |
+| Job pipeline | MVP | Schema doc → `/content` data → CI validation with cycle detection → loader ignoring unknown fields → migration hook |
+| Character sheet / stats | MVP | D&D ability scores + job-derived HP/AC/attack/damage/move |
+| Save / persistence | MVP | On-device JSON in app-internal storage; `schemaVersion` + migration chain from day one; nothing leaves the device |
 | Pet | not started | Persists in co-op |
 | NPC companion | not started | Solo only; removed when partied with real players |
-| Dice / resolution | not started | Define the core roll before anything depends on it |
-| Bestiary | not started | D&D monsters as the content backbone. Data-driven, same argument as jobs |
-| Inventory / loot | not started | |
+| Dice / resolution | MVP | d20 + bonus vs AC; nat 20 crit doubles damage dice, nat 1 fumbles |
+| Bestiary | MVP | Entry with defeat count recorded on victory; monsters are data |
+| Inventory / loot | not started | MVP awards job points, XP and a bestiary entry only — no items yet |
 | Rituals | not started | Group-only. Co-presence requirement undecided; see Rituals |
 | Social / co-op | not started | Pokémon Go's domain: friends, trading, shared encounters |
 
@@ -468,9 +502,16 @@ terrain where available, ATB turn order, jobs as a data pipeline. Still open:
 
 - **Does the leash follow the player mid-fight?** If someone walks away during
   combat, is the avatar dragged along, or is the radius anchored where the
-  encounter started? Biggest remaining combat question.
+  encounter started? Biggest remaining combat question. This stays genuinely
+  open; the MVP anchors the board where the encounter was seeded and does not
+  move it, which is the conservative reading, but the question is not settled by
+  that choice.
 - **How big is the radius?** It, not the cell size, decides whether a fight is a
   readable tactical board or an open field. 10–15 m gives an FFT-sized map.
+  *MVP default, revisit: 12 m, giving a 469-cell board (`3n(n+1)+1` at n = 12).
+  Chosen at the low end of the 10–15 m range so the board reads on a phone
+  screen. Nothing in the engine hard-codes it beyond
+  `Encounter.DEFAULT_BOARD_RADIUS_CELLS`.*
 - **What exactly is "low cost" teleportation?** Settled that it is cheap; not
   settled whether the cost is currency, a cooldown, a per-session budget, or
   some combination. This is the dial that decides whether walking still matters.
@@ -511,8 +552,11 @@ terrain where available, ATB turn order, jobs as a data pipeline. Still open:
 - **Is the world shared** (everyone sees the same encounter at the same place)
   or per-player? Difference between needing a backend and not.
 - How much of a player's real location leaves the device, and where does it go?
-- Does ATB charge continue while another unit is acting, and do heavier actions
-  cost more gauge?
+- **Does ATB charge continue while another unit is acting, and do heavier actions
+  cost more gauge?** *MVP default, revisit: no to both. Gauges pause while an
+  action resolves, and every action costs a flat `GAUGE_MAX`. This is FFT's model
+  and it makes the whole turn order deterministic and testable. Variable costs
+  are the obvious first extension.*
 - **Does elevation come from terrain only, or do buildings count?** Terrain data
   won't know a player is on the fourth floor.
 - Where does one speed stat end and several begin (move speed vs act speed)?

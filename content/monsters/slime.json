@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "slime",
+  "displayName": "Slime",
+  "maxHp": 4,
+  "armorClass": 8,
+  "attackBonus": 1,
+  "damage": "1d4",
+  "speed": 3,
+  "moveRangeCells": 1,
+  "attackRangeCells": 1,
+  "xpReward": 15,
+  "jobPointsReward": 1,
+  "bestiaryText": "A wobbling ooze that barely reacts before it is struck. The winnable first fight."
+}
