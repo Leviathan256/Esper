@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "wolf",
+  "displayName": "Wolf",
+  "maxHp": 9,
+  "armorClass": 12,
+  "attackBonus": 3,
+  "damage": "1d6+1",
+  "speed": 14,
+  "moveRangeCells": 5,
+  "attackRangeCells": 1,
+  "xpReward": 40,
+  "jobPointsReward": 2,
+  "bestiaryText": "Runs down stragglers before they can react. Fast enough to act twice for every slow swing."
+}

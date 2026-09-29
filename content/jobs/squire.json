@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "squire",
+  "displayName": "Squire",
+  "description": "A front-line trainee. Where every knight begins.",
+  "hitDie": "1d10",
+  "baseArmorClass": 12,
+  "attackAbility": "str",
+  "damage": "1d8",
+  "speed": 8,
+  "moveRangeCells": 4,
+  "attackRangeCells": 1,
+  "statGrowth": { "str": 1, "con": 1 },
+  "abilitiesGranted": ["shield_bash"],
+  "prerequisites": [],
+  "unlocks": ["knight"],
+  "jobPointsToMaster": 100
+}

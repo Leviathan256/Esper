@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "knight",
+  "displayName": "Knight",
+  "description": "A seasoned melee fighter grown out of the squire's training.",
+  "hitDie": "1d10",
+  "baseArmorClass": 15,
+  "attackAbility": "str",
+  "damage": "1d10+1",
+  "speed": 7,
+  "moveRangeCells": 4,
+  "attackRangeCells": 1,
+  "statGrowth": { "str": 2, "con": 1 },
+  "abilitiesGranted": ["shield_bash", "guard"],
+  "prerequisites": ["squire"],
+  "unlocks": [],
+  "jobPointsToMaster": 200
+}

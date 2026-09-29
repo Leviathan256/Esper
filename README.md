@@ -165,13 +165,29 @@ back.
 
 ## Build locally
 
+There is no committed Gradle wrapper jar, so use a `gradle` binary, not
+`./gradlew`.
+
 ```bash
-./gradlew :app:assembleDebug
+# Game logic lives in the pure-JVM :engine module and is testable with no Android SDK:
+gradle :engine:test --configure-on-demand
+
+# The Android app needs the Android SDK, and CI builds it:
+gradle :app:assembleRelease
 ```
+
+`:engine` is where jobs, monsters, dice, the hex grid and combat live, which is
+why almost everything can be checked without a device. `--configure-on-demand`
+keeps Gradle from configuring `:app` — and therefore from needing the Android
+SDK — when you only want engine tests. Plugin versions are declared in
+`settings.gradle.kts`, not the root build file, so the root project resolves no
+plugin artifacts at all.
 
 ## What's in the app
 
 - **Map** (first screen on launch) — osmdroid + OpenStreetMap tiles
+- **Encounters and combat** — a hex grid on the real map, ATB turn order, dice resolution
+- **Character sheet** — job-derived stats, job points, bestiary
 - **Ask Claude** — prompt box, app-state preview, recent runs, update banner
 - **Settings** — repo target, release channel, GitHub token
 - **Prompts** — copyable templates for driving an assistant outside the app

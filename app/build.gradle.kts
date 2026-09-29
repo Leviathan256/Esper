@@ -84,6 +84,15 @@ android {
         }
     }
 
+    // Ship the shared /content directory (jobs, monsters) as APK assets, so the
+    // app and the :engine tests read the exact same files and game data can never
+    // drift between them. content/jobs/squire.json becomes asset jobs/squire.json.
+    //
+    // srcDir ADDS to the asset source set. Never srcDirs(...) — that replaces the
+    // set and would silently drop src/main/assets/codex_prompts.md, breaking the
+    // Prompts screen.
+    sourceSets.getByName("main").assets.srcDir("../content")
+
     // Java and Kotlin must agree on the JVM target or the Kotlin plugin fails the
     // build. kotlinOptions below sets 17, so compileOptions has to match rather
     // than fall back to its 1.8 default.
@@ -98,8 +107,16 @@ android {
 }
 
 dependencies {
+    // Every game rule, dice roll, stat formula and grid computation lives in the
+    // pure-JVM :engine module, where it is unit-tested with no Android SDK. This
+    // module only renders what the engine decides.
+    implementation(project(":engine"))
+
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-compose:1.9.3")
+    // LocalLifecycleOwner, so the map and GPS follow the Activity lifecycle
+    // rather than the composition (which outlives onStop).
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
 
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))
     implementation("androidx.compose.ui:ui")

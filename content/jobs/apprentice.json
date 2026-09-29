@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "apprentice",
+  "displayName": "Apprentice",
+  "description": "A fledgling spellcaster who has not yet chosen a discipline.",
+  "hitDie": "1d6",
+  "baseArmorClass": 11,
+  "attackAbility": "int",
+  "damage": "1d6",
+  "speed": 8,
+  "moveRangeCells": 4,
+  "attackRangeCells": 1,
+  "statGrowth": { "int": 1, "wis": 1 },
+  "abilitiesGranted": ["arcane_bolt"],
+  "prerequisites": [],
+  "unlocks": [],
+  "jobPointsToMaster": 100
+}
