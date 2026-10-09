@@ -315,7 +315,7 @@ fun MapScreen(
                 } else {
                     "Encounter: $names"
                 }
-            } ?: "Encounter: none nearby yet"
+            } ?: GameSession.encounterNotice?.let { "Encounter: $it" } ?: "Encounter: none nearby yet"
             Text(
                 text = encounterStatus,
                 style = MaterialTheme.typography.bodySmall,

@@ -155,15 +155,20 @@ Until then: keep the identifying User-Agent osmdroid is configured with, honour
 cache headers, and **do not add prefetch, bulk download, or offline-area
 features against the OSM servers.**
 
-**Encounter placement has no safety check — required before launch.** The design
-forbids seeding or routing players onto roads, railways, water, or private
-property. The MVP ships a `SafeLocationChecker` seam with a trivial always-safe
-default, because no geodata source for it is wired up and adding one is a new
-dependency. This is a real gap against the Combat safety rules, not a resolved
-item, and it belongs alongside the self-hosted tile source as a blocker before
-real players arrive. Mitigating factors today: encounters seed only 6–10 m from
-the player, and **no cell ever has to be physically walked to** — combat movement
-is entirely on-screen.
+**Encounter placement safety check.** Before seeding, the app asks the public
+Overpass API for OpenStreetMap roads, railways, water, coastline, buildings and
+`access=private` land within 40 m of the leash centre (one request per seeding,
+never prefetched). `GeodataSafetyChecker` rejects any candidate inside or too
+close to one: roads and railways by carriageway half-width (or the `width` tag)
+plus 3 m, water by 2 m, buildings and private land by 1 m; footpaths, tunnels
+and `access=no` + `foot=yes` paths are not hazards. The tag policy lives in
+`OverpassHazards`. It **fails closed**: no geodata (offline, Overpass error or
+timeout) means no new encounter, never a blind one. Known limits: OSM coverage
+is only as good as local mapping; only the encounter anchor is checked, not
+every board cell (acceptable because **no cell ever has to be physically
+walked to** — combat movement is entirely on-screen); and the public Overpass
+instance carries the same policy risk as the public tiles, so it should move to
+a self-hosted instance alongside the tile source before scale.
 
 **Movement.** A radius of allowed territory travels with the player. The avatar
 moves freely within it; the player's GPS position sets where the circle is
@@ -445,7 +450,7 @@ character and not with the job instance.
 | Titles | not started | Attuned like land; fade on inactivity, claimable by another |
 | Activity tracking | not started | Encounter counters per H3 cell at the player's real position, trusted clock, no raw traces |
 | Teleportation | not started | Low cost, between allowed regions and into active battles; doubles as reconnect |
-| Encounter seeding | MVP | Per-player, on-device, 6–10 m from the radius centre. Shared-vs-per-player placement still open. **No safety geodata yet — see below** |
+| Encounter seeding | MVP | Per-player, on-device, 6–10 m from the radius centre, checked against OSM roads/rail/water/private land (fails closed). Shared-vs-per-player placement still open |
 | Job pipeline | MVP | Schema doc → `/content` data → CI validation with cycle detection → loader ignoring unknown fields → migration hook |
 | Character sheet / stats | MVP | D&D ability scores + job-derived HP/AC/attack/damage/move |
 | Save / persistence | MVP | On-device JSON in app-internal storage; `schemaVersion` + migration chain from day one; nothing leaves the device |
