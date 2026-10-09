@@ -14,6 +14,10 @@ object CharacterFactory {
         cha = 10,
     )
 
+    /** Jobs a brand-new character may start as: those with no prerequisites. */
+    fun startingJobs(jobs: List<JobDefinition>): List<JobDefinition> =
+        jobs.filter { it.prerequisites.isEmpty() }
+
     fun newCharacter(name: String, startingJob: JobDefinition): CharacterState =
         CharacterState(
             name = name,

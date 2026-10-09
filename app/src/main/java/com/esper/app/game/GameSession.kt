@@ -10,6 +10,7 @@ import com.esper.engine.character.Progression
 import com.esper.engine.combat.BattleResult
 import com.esper.engine.combat.CombatEngine
 import com.esper.engine.content.ContentCatalog
+import com.esper.engine.content.JobDefinition
 import com.esper.engine.dice.SystemRandom
 import com.esper.engine.encounter.Battle
 import com.esper.engine.encounter.BattleBuilder
@@ -105,10 +106,14 @@ object GameSession {
         }
     }
 
+    /** True once [ensureCharacter] found no save: the player must create a character first. */
+    var needsCharacter by mutableStateOf(false)
+        private set
+
     /**
-     * Ensures a character exists: loads a saved one, or creates and immediately
-     * persists a fresh one starting as "squire". Sets [contentError] instead of
-     * crashing if the catalog has no jobs at all.
+     * Loads the saved character, if any. With no save, sets [needsCharacter] so
+     * the UI shows the character creator; see [createCharacter]. Sets
+     * [contentError] instead of crashing if the catalog has no jobs at all.
      */
     fun ensureCharacter(context: Context) {
         if (character != null) return
@@ -120,17 +125,21 @@ object GameSession {
         }
         contentError = null
 
-        val storage = GameStorage(context)
-        val loaded = storage.load()
+        val loaded = GameStorage(context).load()
         if (loaded != null) {
             character = loaded
-            return
+            needsCharacter = false
+        } else {
+            needsCharacter = true
         }
+    }
 
-        val startingJob = catalog.job("squire") ?: catalog.jobs.first()
-        val created = CharacterFactory.newCharacter("Esper", startingJob)
+    /** Creates the player's character from the creator screen and persists it immediately. */
+    fun createCharacter(context: Context, name: String, startingJob: JobDefinition) {
+        val created = CharacterFactory.newCharacter(name, startingJob)
+        GameStorage(context).save(created)
         character = created
-        storage.save(created)
+        needsCharacter = false
     }
 
     /** Seeds one encounter near [radiusCenter], re-seeding if the leash has moved away from it. */
