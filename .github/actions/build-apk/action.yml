@@ -130,7 +130,8 @@ runs:
 
         if [[ -n "${KEYSTORE_BASE64}" ]]; then
           echo "Using the keystore from repository secrets (durable)."
-          if ! printf '%s' "${KEYSTORE_BASE64}" | base64 -d > .ci/esper-release.jks; then
+          # Strip whitespace: a value copied off a phone screen picks up spaces and CRs.
+          if ! printf '%s' "${KEYSTORE_BASE64}" | tr -d '[:space:]' | base64 -d > .ci/esper-release.jks; then
             echo "::error::ESPER_KEYSTORE_BASE64 is not valid base64. Re-run \
             'base64 -w0 esper-release.jks' and paste the whole single line."
             exit 1
