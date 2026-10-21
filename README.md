@@ -151,6 +151,26 @@ Tap **Show context** to see exactly what goes out before you send it. The
 snapshot deliberately contains no tokens or account identifiers — assume it ends
 up readable in the Actions log.
 
+## Server
+
+Esper is online-only. A Ktor server (`:server`, which runs the pure-JVM
+`:engine`) holds accounts, passkeys, characters and the latest player position.
+Players sign in with a passkey (Android 14+ and a passkey provider); the
+relying-party ID is `leviathan256.github.io`. The contract is
+`docs/SERVER.md`; what location data is sent and kept is in
+`docs/GAME_DESIGN.md` ("Why the app asks for location").
+
+Everything is free: an Oracle Cloud Always Free ARM VM, Postgres and Caddy on it
+(Let's Encrypt TLS on a DuckDNS or sslip.io name), and GitHub Actions. `deploy/`
+holds the systemd unit, Caddyfile, env example and `setup.sh`; `pages/` holds the
+`assetlinks.json` template and `fingerprint.sh`. `deploy-server.yml` tests,
+builds and rsyncs the server on pushes to `main`, and only builds and tests until
+the deploy secrets exist. It never touches the `nightly` release.
+
+The APK reads its default server address from the `ESPER_SERVER_URL` repository
+variable at build time (blank is fine; it can be set in Settings). One-time
+account steps are in `docs/BETA_SETUP_LEVI.md`.
+
 ## Versioning
 
 `scripts/ci/version.sh` derives `versionCode` from the commit timestamp
@@ -174,6 +194,9 @@ There is no committed Gradle wrapper jar, so use a `gradle` binary, not
 ```bash
 # Game logic lives in the pure-JVM :engine module and is testable with no Android SDK:
 gradle :engine:test --configure-on-demand
+
+# The server's API tests need Postgres; without ESPER_TEST_DB_URL they skip:
+gradle :server:test
 
 # The Android app needs the Android SDK, and CI builds it:
 gradle :app:assembleRelease

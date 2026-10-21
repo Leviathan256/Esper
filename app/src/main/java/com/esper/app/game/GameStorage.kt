@@ -10,6 +10,9 @@ import java.io.File
  * The `:app` side of the engine's [SaveStore] seam: plain `java.io` against
  * `filesDir/esper/character.json`, encoded by `SaveCodec`.
  *
+ * Since step 2 the character lives on the Esper server; this file is only read
+ * once, to upload a pre-server save, then [clear]ed (see `GameSession.loadCharacter`).
+ *
  * Deliberately not `EncryptedSharedPreferences` — character data is not secret,
  * and plain files sidestep the broken-keystore failure class `core/Settings.kt`
  * already has to work around for the GitHub token.
@@ -39,5 +42,10 @@ class GameStorage(private val context: Context) : SaveStore {
         } catch (_: Exception) {
             // Best-effort; losing a save write is better than crashing mid-fight.
         }
+    }
+
+    /** Deletes the save once the server holds the character. */
+    fun clear() {
+        file.delete()
     }
 }

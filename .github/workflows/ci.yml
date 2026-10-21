@@ -26,6 +26,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # Baked into BuildConfig.SERVER_URL; unset = blank = "Server not configured".
+      ESPER_SERVER_URL: ${{ vars.ESPER_SERVER_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,6 +73,21 @@ jobs:
   engine:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # :server's API tests run against a real Postgres (they skip without this URL).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: esper
+          POSTGRES_DB: esper_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ESPER_TEST_DB_URL: jdbc:postgresql://localhost:5432/esper_test?user=postgres&password=esper
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,5 +111,5 @@ jobs:
           cache-read-only: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
           add-job-summary: on-failure
 
-      - name: Run engine tests
-        run: gradle :engine:test --console=plain
+      - name: Run engine and server tests
+        run: gradle :engine:test :server:test --console=plain

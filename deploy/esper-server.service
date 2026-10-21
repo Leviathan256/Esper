@@ -1,0 +1,23 @@
+[Unit]
+Description=Esper game server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=esper
+WorkingDirectory=/opt/esper/server
+EnvironmentFile=/etc/esper/server.env
+ExecStart=/opt/esper/server/bin/server
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+# Deploys rsync over SSH outside this unit; the running JVM cannot rewrite its own binaries.
+ReadOnlyPaths=/opt/esper/server
+ProtectHome=true
+PrivateDevices=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

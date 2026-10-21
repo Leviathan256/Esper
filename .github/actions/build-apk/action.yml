@@ -281,4 +281,10 @@ runs:
           echo "| channel | \`${ESPER_CHANNEL}\` |"
           echo "| apk | \`${{ inputs.asset-name }}\` ($(du -h "dist/${{ inputs.asset-name }}" | cut -f1)) |"
           echo "| signer | \`${SIGNER#*SHA256: }\` |"
+          # Feed the two server-side passkey settings (docs/BETA_SETUP_LEVI.md).
+          HEX="$(printf '%s' "${SIGNER#*SHA256: }" | tr -d ': ' | tr 'A-F' 'a-f')"
+          if [[ "${HEX}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "| assetlinks | \`$(printf '%s' "${HEX}" | sed 's/../&:/g;s/:$//' | tr a-f A-F)\` |"
+            echo "| passkey origin | \`android:apk-key-hash:$(printf '%s' "${HEX}" | xxd -r -p | base64 -w0 | tr '+/' '-_' | tr -d '=')\` |"
+          fi
         } >> "${GITHUB_STEP_SUMMARY}"

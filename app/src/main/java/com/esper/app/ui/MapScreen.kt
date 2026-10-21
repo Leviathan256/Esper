@@ -143,8 +143,8 @@ fun MapScreen(
     }
 
     // Seed a leash centre immediately from the map's current view so the game
-    // is playable before any GPS fix (or permission) arrives, then load or
-    // create the character.
+    // is playable before any GPS fix (or permission) arrives. The character is
+    // already loaded: MainActivity only shows the map once the server returned it.
     LaunchedEffect(Unit) {
         // Only seed from MapState when it holds a real position (i.e. the player
         // panned the map on an earlier visit). Its 0/0 default is "unknown", not
@@ -152,7 +152,6 @@ fun MapScreen(
         if (MapState.latitude != 0.0 || MapState.longitude != 0.0) {
             GameSession.useFallbackCenter(GeoPoint(MapState.latitude, MapState.longitude))
         }
-        GameSession.ensureCharacter(context)
         if (!permissionGranted) {
             GameSession.locationDenied = true
         }
@@ -201,6 +200,7 @@ fun MapScreen(
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
                     mapView.onResume()
+                    GameSession.retrySync()
                     if (permissionGranted) {
                         locationProvider.start { lat, lon, accuracy ->
                             GameSession.onLocationFix(lat, lon, accuracy)
@@ -320,6 +320,13 @@ fun MapScreen(
                 text = encounterStatus,
                 style = MaterialTheme.typography.bodySmall,
             )
+            GameSession.syncError?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
             GameSession.contentError?.let { error ->
                 Text(
                     text = "Content error: $error",

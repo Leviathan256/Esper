@@ -1,0 +1,9 @@
+# ESPER_HOST is set by setup.sh (systemd drop-in). Caddy gets the TLS cert
+# (Let's Encrypt, ZeroSSL fallback) by itself. No access log: it would hold IPs.
+{$ESPER_HOST} {
+	# Caddy has no default body limit; Ktor's own check only sees Content-Length.
+	request_body {
+		max_size 64KB
+	}
+	reverse_proxy 127.0.0.1:8080
+}

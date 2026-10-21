@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,13 +31,14 @@ import androidx.compose.ui.unit.dp
 import com.esper.app.game.ContentRepository
 import com.esper.app.game.GameSession
 import com.esper.engine.character.CharacterFactory
+import kotlinx.coroutines.launch
 
 private const val MAX_NAME_LENGTH = 20
 
 /**
  * First-launch screen: the player names their character and picks a starting
  * job. Only jobs [CharacterFactory.startingJobs] allows are offered; the
- * character itself is built and saved by [GameSession.createCharacter].
+ * character itself is built and saved on the server by [GameSession.createCharacter].
  */
 @Composable
 fun CharacterCreatorScreen() {
@@ -46,6 +48,9 @@ fun CharacterCreatorScreen() {
     var jobId by rememberSaveable { mutableStateOf(jobs.firstOrNull { it.id == "squire" }?.id ?: jobs.firstOrNull()?.id) }
     val trimmed = name.trim()
     val job = jobs.firstOrNull { it.id == jobId }
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -95,12 +100,24 @@ fun CharacterCreatorScreen() {
             }
         }
 
+        error?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
         Button(
-            onClick = { job?.let { GameSession.createCharacter(context, trimmed, it) } },
-            enabled = trimmed.isNotEmpty() && job != null,
+            onClick = {
+                val chosen = job ?: return@Button
+                busy = true
+                error = null
+                scope.launch {
+                    GameSession.createCharacter(trimmed, chosen)
+                        .onFailure { error = it.message ?: "Couldn't create the character." }
+                    busy = false
+                }
+            },
+            enabled = trimmed.isNotEmpty() && job != null && !busy,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Begin")
+            Text(if (busy) "Creating…" else "Begin")
         }
     }
 }

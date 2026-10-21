@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -19,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,17 +30,22 @@ import androidx.compose.ui.unit.dp
 import com.esper.app.BuildConfig
 import com.esper.app.core.Settings
 import com.esper.app.core.UpdateChecker
+import com.esper.app.game.GameSession
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 
 /**
- * Repo target, release channel, and the GitHub token used to dispatch runs.
+ * Esper server address and sign-out, repo target, release channel, and the
+ * GitHub token used to dispatch runs.
  *
- * Nothing here is sent to Claude — the token in particular is deliberately
+ * Nothing here is sent to Claude — the tokens in particular are deliberately
  * excluded from the app-state snapshot.
  */
 @Composable
 fun SettingsScreen(settings: Settings, onDone: () -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var serverUrl by remember { mutableStateOf(settings.serverUrl) }
     var owner by remember { mutableStateOf(settings.repoOwner) }
     var repo by remember { mutableStateOf(settings.repoName) }
     var branch by remember { mutableStateOf(settings.baseBranch) }
@@ -55,6 +62,19 @@ fun SettingsScreen(settings: Settings, onDone: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
+
+        OutlinedTextField(
+            value = serverUrl,
+            onValueChange = { serverUrl = it; saved = false },
+            label = { Text("Esper server (https://…)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (GameSession.signedIn) {
+            OutlinedButton(onClick = { scope.launch { GameSession.signOut() } }) {
+                Text("Sign out")
+            }
+        }
 
         OutlinedTextField(
             value = owner,
@@ -153,6 +173,7 @@ fun SettingsScreen(settings: Settings, onDone: () -> Unit) {
         ) {
             Button(
                 onClick = {
+                    settings.serverUrl = serverUrl
                     settings.repoOwner = owner
                     settings.repoName = repo
                     settings.baseBranch = branch.ifBlank { "main" }

@@ -7,7 +7,9 @@
         core-loop mechanics (see docs/GAME_DESIGN.md, Combat > Movement). COARSE is
         declared alongside FINE because Android 12+ lets the user grant approximate
         accuracy only, and the leash circle is designed to absorb that error.
-        Nothing derived from a fix ever leaves the device.
+        While the map is open, the latest fix is sent to the Esper server; what is
+        sent, why and how long it is kept is the rule in docs/GAME_DESIGN.md
+        ("Why the app asks for location"). Passkeys need no manifest entry.
     -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />

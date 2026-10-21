@@ -1,0 +1,82 @@
+name: Deploy server
+
+# Builds and tests :server, then rsyncs the install dist to the Oracle VM.
+# Never touches the rolling "nightly" tag or any release. Until the deploy
+# secrets exist the job only builds and tests, and stays green.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "engine/**"
+      - "content/**"
+      - "deploy/**"
+      - ".github/workflows/deploy-server.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: esper
+          POSTGRES_DB: esper_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ESPER_TEST_DB_URL: jdbc:postgresql://localhost:5432/esper_test?user=postgres&password=esper
+      HOST: ${{ secrets.ESPER_SERVER_HOST }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+          cache-read-only: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
+          add-job-summary: on-failure
+
+      - name: Test and assemble server
+        run: gradle :server:test :server:installDist --console=plain
+
+      - name: Deploy
+        if: env.HOST != ''
+        env:
+          SSH_KEY: ${{ secrets.ESPER_SERVER_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.ESPER_SERVER_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${SSH_KEY}" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "${KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          SSH="ssh -i $HOME/.ssh/id_deploy -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes"
+          rsync -az --delete -e "${SSH}" server/build/install/server/ "esper@${HOST}:/opt/esper/server/"
+          ${SSH} "esper@${HOST}" sudo systemctl restart esper-server
+          curl -fsS --retry 10 --retry-delay 3 --retry-connrefused "https://${HOST}/healthz"
+
+      - name: Note skipped deploy
+        if: env.HOST == ''
+        run: echo "deploy skipped - no ESPER_SERVER_HOST secret" >> "${GITHUB_STEP_SUMMARY}"
