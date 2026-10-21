@@ -36,3 +36,4 @@ dependencyResolutionManagement {
 rootProject.name = "Esper"
 include(":app")
 include(":engine")
+include(":server")

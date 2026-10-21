@@ -27,6 +27,9 @@ android {
         buildConfigField("String", "REPO_OWNER", "\"${repo.substringBefore('/')}\"")
         buildConfigField("String", "REPO_NAME", "\"${repo.substringAfter('/')}\"")
         buildConfigField("String", "CLAUDE_WORKFLOW_FILE", "\"claude-dispatch.yml\"")
+        // Esper server base URL (docs/SERVER.md §8). Empty = the app asks for it in Settings.
+        val serverUrl = System.getenv("ESPER_SERVER_URL")?.takeIf { it.isNotBlank() } ?: ""
+        buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
     }
 
     // Allow CI (and local dev) to inject a signing key via environment variables.
@@ -131,7 +134,13 @@ dependencies {
     // Android keystore so the token never sits in plaintext prefs.
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // Passkey sign-in. Framework Credential Manager only: deliberately no
+    // credentials-play-services-auth, so passkeys need Android 14+ (docs/SERVER.md §10).
+    implementation("androidx.credentials:credentials:1.3.0")
+
     // Map view (OpenStreetMap). Requires INTERNET permission for live tiles.
     implementation("org.osmdroid:osmdroid-android:6.1.20")
+
+    testImplementation("junit:junit:4.13.2")
 }
 

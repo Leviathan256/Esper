@@ -180,9 +180,17 @@ touch, so jitter never teleports the avatar between cells.
 `ACCESS_COARSE_LOCATION` alongside, for Android 12+'s approximate-only grant) is
 requested because two core-loop mechanics need it: **encounters seed near the
 player's real position**, and **the movement radius the avatar acts inside is
-centred on the GPS fix**. Nothing derived from a fix leaves the device. If the
-player declines, the game stays playable — the radius anchors to the map view
-instead — because no player may be required to grant a permission, or take a
+centred on the GPS fix**. Esper is online-only. While the map is open, the app
+sends your precise position (latitude, longitude, accuracy) to the Esper server
+over an encrypted connection, at most every 30 seconds or whenever you have
+moved 50 m. The server keeps only your latest position, in memory: it is
+overwritten by the next one, dropped 10 minutes after your last update, on
+sign-out, and whenever the server restarts. It is never written to the database
+or to logs, and never shared outside the game. Today it exists so the server can
+place you in the shared world; later steps use it for showing you to players
+within about 300 m, movement checks and territory. If the player declines, the
+game stays playable — the radius anchors to the map view instead, and the server
+receives no position at all — because no player may be required to grant a permission, or take a
 walk, in order to keep playing.
 
 Beyond the moving radius, the avatar may also travel to, from, and within:
@@ -364,7 +372,8 @@ Implementation constraints that follow:
 - **Activity is stored on-device as aggregated H3 cell counters, never as a raw
   location trace.** Tracking a week of presence means holding a week of
   someone's real movements; keep the minimum that answers "has this cell met the
-  threshold", and nothing that reconstructs a path.
+  threshold", and nothing that reconstructs a path. The server's anti-cheat uses
+  only the previous position, per "Why the app asks for location".
 - Activity should accumulate at a **coarser resolution than the claim itself**
   (a res-12 claim is only ~19 m across, smaller than the area someone
   meaningfully "spends a week in"), then the claim is staked within it.
@@ -453,7 +462,7 @@ character and not with the job instance.
 | Encounter seeding | MVP | Per-player, on-device, 6–10 m from the radius centre, checked against OSM roads/rail/water/private land (fails closed). Shared-vs-per-player placement still open |
 | Job pipeline | MVP | Schema doc → `/content` data → CI validation with cycle detection → loader ignoring unknown fields → migration hook |
 | Character sheet / stats | MVP | D&D ability scores + job-derived HP/AC/attack/damage/move |
-| Save / persistence | MVP | On-device JSON in app-internal storage; `schemaVersion` + migration chain from day one; nothing leaves the device |
+| Save / persistence | MVP | Character saved on the Esper server (Postgres), tied to your passkey account; `schemaVersion` + migration chain from day one; an on-device save from before the server existed is uploaded once on first sign-in and then deleted from the phone |
 | Pet | not started | Persists in co-op |
 | NPC companion | not started | Solo only; removed when partied with real players |
 | Dice / resolution | MVP | d20 + bonus vs AC; nat 20 crit doubles damage dice, nat 1 fumbles |
@@ -470,7 +479,9 @@ These apply to every Claude run, whoever dispatched it:
 - No paid services, no API keys baked into the app.
 - No new runtime permission without a stated in-game reason.
 - Location handling: request only what a feature actually needs, and never
-  transmit a player's position off-device without saying so here first.
+  transmit, store or retain a player's position beyond what "Why the app asks
+  for location" states; any change to what is sent, why, or how long it is kept
+  is written there first.
 - Never require a player to walk somewhere to keep playing, and never route
   them onto roads, railways, water, or private property.
 - Content (jobs, monsters, abilities) is data validated in CI, not Kotlin.
@@ -555,8 +566,10 @@ terrain where available, ATB turn order, jobs as a data pipeline. Still open:
   position you could have travelled to — but staking a *new* claim somewhere you
   are not is still worth spoofing for. Answer before open enrolment.
 - **Is the world shared** (everyone sees the same encounter at the same place)
-  or per-player? Difference between needing a backend and not.
+  or per-player? *Settled: shared world on a single Esper server; online is
+  required, there is no offline play mode.*
 - How much of a player's real location leaves the device, and where does it go?
+  *Resolved: see "Why the app asks for location".*
 - **Does ATB charge continue while another unit is acting, and do heavier actions
   cost more gauge?** *MVP default, revisit: no to both. Gauges pause while an
   action resolves, and every action costs a flat `GAUGE_MAX`. This is FFT's model

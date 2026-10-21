@@ -8,11 +8,12 @@ import androidx.security.crypto.MasterKey
 import com.esper.app.BuildConfig
 
 /**
- * App settings, with the GitHub token kept in keystore-backed encrypted prefs.
+ * App settings, with the GitHub token and the Esper session token kept in
+ * keystore-backed encrypted prefs.
  *
- * The token is only ever used for api.github.com requests against the
- * configured repo. It is never included in the app-state snapshot sent to
- * Claude.
+ * The GitHub token is only ever used for api.github.com requests against the
+ * configured repo, the session token only for the Esper server. Neither is ever
+ * included in the app-state snapshot sent to Claude.
  */
 class Settings(context: Context) {
     private val appContext = context.applicationContext
@@ -64,6 +65,28 @@ class Settings(context: Context) {
             prefs.edit().putString(KEY_BRANCH, value.trim()).apply()
         }
 
+    /** Esper server bearer token (docs/SERVER.md §6); null when signed out. */
+    var sessionToken: String?
+        get() = if (!keystoreAvailable) memorySession else securePrefs.getString(KEY_SESSION, null)?.takeIf { it.isNotBlank() }
+        set(value) {
+            // No keystore: keep the 90-day bearer in memory only, never in plaintext prefs.
+            if (!keystoreAvailable) {
+                memorySession = value
+                return
+            }
+            securePrefs.edit().apply { if (value == null) remove(KEY_SESSION) else putString(KEY_SESSION, value) }.apply()
+        }
+
+    /** Base URL of the Esper server, e.g. https://esper-x.duckdns.org. Blank = not configured. */
+    var serverUrl: String
+        get() = prefs.getString(KEY_SERVER, null) ?: BuildConfig.SERVER_URL
+        set(value) {
+            val trimmed = value.trim().trimEnd('/')
+            // A token must never be sent to a different host than the one that issued it.
+            if (trimmed != serverUrl) sessionToken = null
+            prefs.edit().putString(KEY_SERVER, trimmed).apply()
+        }
+
     /** Track the nightly prerelease rather than the latest stable tag. */
     var followNightly: Boolean
         get() = prefs.getBoolean(KEY_NIGHTLY, BuildConfig.CHANNEL != "stable")
@@ -82,10 +105,15 @@ class Settings(context: Context) {
         private const val KEY_REPO = "repo_name"
         private const val KEY_BRANCH = "base_branch"
         private const val KEY_NIGHTLY = "follow_nightly"
+        private const val KEY_SESSION = "session_token"
+        private const val KEY_SERVER = "server_url"
 
         /** False when the device keystore failed and we fell back to plain prefs. */
         @Volatile
         var keystoreAvailable: Boolean = true
             private set
+
+        // Process-wide, so an Activity recreate does not sign the player out.
+        private var memorySession: String? = null
     }
 }

@@ -39,3 +39,8 @@ captures/
 # CI signing key and release staging — must never be committed.
 .ci/
 dist/
+
+# Keystores and server env must never be committed.
+*.jks
+*.keystore
+server.env

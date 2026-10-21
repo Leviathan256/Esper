@@ -1,10 +1,13 @@
 package com.esper.app.game
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.esper.engine.character.CharacterFactory
+import com.esper.app.core.ServerClient
+import com.esper.app.core.Settings
+import com.esper.app.core.Unauthorized
 import com.esper.engine.character.CharacterState
 import com.esper.engine.character.Progression
 import com.esper.engine.combat.BattleResult
@@ -20,21 +23,101 @@ import com.esper.engine.encounter.GeodataSafetyChecker
 import com.esper.engine.geometry.GeoPoint
 import com.esper.engine.geometry.LocalTangentPlane
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.io.IOException
 import kotlin.math.max
 
 /**
- * App-scoped state for the core loop: location, the movement leash, the seeded
- * encounter and an in-flight battle.
+ * App-scoped state for the core loop: the server session, location, the
+ * movement leash, the seeded encounter and an in-flight battle.
  *
  * A singleton rather than a ViewModel, mirroring `core/ClaudeSession`, so an
  * in-flight battle survives navigating away to the map and back.
  *
  * `:app` never computes a game outcome here — every call below goes straight
  * through to an `:engine` entry point (`EncounterSeeder`, `BattleBuilder`,
- * `CombatEngine`, `Progression`, `SaveCodec` via [GameStorage]); this object only
+ * `CombatEngine`, `Progression`, `SaveCodec` via [ServerClient]); this object only
  * decides *when* to call them and holds the results as UI state.
+ *
+ * The character lives on the Esper server (docs/SERVER.md); there is no offline
+ * mode. A 401 from any call signs the player out.
  */
 object GameSession {
+
+    private var settings: Settings? = null
+
+    /** Background server calls (progress sync, position upload); outlives any screen. */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Serialises progress PUTs so an older state can never land after a newer one. */
+    private val syncMutex = Mutex()
+
+    /** True while a session token is stored. The UI shows sign-in otherwise. */
+    var signedIn by mutableStateOf(false)
+        private set
+
+    /** True while [loadCharacter] is talking to the server. */
+    var loading by mutableStateOf(false)
+        private set
+
+    /** Why the character could not be loaded (e.g. server unreachable); null otherwise. */
+    var loadError by mutableStateOf<String?>(null)
+        private set
+
+    /** Set when the last progress upload failed; cleared by the next one that succeeds. */
+    var syncError by mutableStateOf<String?>(null)
+        private set
+
+    private var lastSentFix: GeoPoint? = null
+    private var lastSentAtMillis = 0L
+
+    /** Called once at startup with the app's [Settings]. */
+    fun bind(settings: Settings) {
+        this.settings = settings
+        signedIn = settings.sessionToken != null
+    }
+
+    /** Stores the token a passkey ceremony returned. */
+    fun signIn(token: String) {
+        settings?.sessionToken = token
+        clearSessionState()
+        signedIn = true
+    }
+
+    /** Best-effort server logout, then forgets the token and the character either way. */
+    suspend fun signOut() {
+        client()?.logout()
+        settings?.sessionToken = null
+        clearSessionState()
+        signedIn = false
+    }
+
+    private fun client(): ServerClient? = settings?.let { ServerClient(it.serverUrl, it.sessionToken) }
+
+    /** Any 401 means the token is dead: drop it so the gate returns to sign-in. */
+    private fun <T> Result<T>.checkAuth(): Result<T> = onFailure {
+        if (it is Unauthorized) {
+            settings?.sessionToken = null
+            clearSessionState()
+            signedIn = false
+        }
+    }
+
+    private fun clearSessionState() {
+        character = null
+        needsCharacter = false
+        loadError = null
+        syncError = null
+        battle = null
+        engine = null
+        encounter = null
+        lastSentFix = null
+    }
 
     /** Most recent GPS fix, or null if none has arrived. */
     var lastFix by mutableStateOf<GeoPoint?>(null)
@@ -87,6 +170,7 @@ object GameSession {
         lastFix = fix
         lastAccuracyMetres = accuracyMetres
         locationDenied = false
+        uploadFix(fix, accuracyMetres)
 
         val current = radiusCenter
         if (current == null) {
@@ -101,6 +185,22 @@ object GameSession {
     }
 
     /**
+     * Sends the fix per the location rule in docs/GAME_DESIGN.md ("Why the app
+     * asks for location"): only real GPS fixes (never the map-view fallback), at
+     * most every 30 s or after 50 m. Fire-and-forget; a failed send waits for
+     * the next window.
+     */
+    private fun uploadFix(fix: GeoPoint, accuracyMetres: Float) {
+        if (!signedIn) return
+        val now = SystemClock.elapsedRealtime()
+        if (!shouldSendFix(lastSentFix, lastSentAtMillis, fix, now)) return
+        val server = client() ?: return
+        lastSentFix = fix
+        lastSentAtMillis = now
+        scope.launch { server.postLocation(fix.lat, fix.lon, accuracyMetres.toDouble()).checkAuth() }
+    }
+
+    /**
      * Playable without a location grant: seeds [radiusCenter] from the map's
      * current view centre if nothing has set it yet. No-op once a real fix (or an
      * earlier fallback) has already established a centre — the avatar's leash is
@@ -112,17 +212,18 @@ object GameSession {
         }
     }
 
-    /** True once [ensureCharacter] found no save: the player must create a character first. */
+    /** True once [loadCharacter] found none on the server: the player must create one first. */
     var needsCharacter by mutableStateOf(false)
         private set
 
     /**
-     * Loads the saved character, if any. With no save, sets [needsCharacter] so
-     * the UI shows the character creator; see [createCharacter]. Sets
-     * [contentError] instead of crashing if the catalog has no jobs at all.
+     * Loads the account's character from the server. With none, sets
+     * [needsCharacter] so the UI shows the creator; see [createCharacter]. Sets
+     * [loadError] when the server can't be reached, and [contentError] instead of
+     * crashing if the catalog has no jobs at all.
      */
-    fun ensureCharacter(context: Context) {
-        if (character != null) return
+    suspend fun loadCharacter(context: Context) {
+        if (character != null || loading) return
 
         val catalog = ContentRepository.catalog(context)
         if (catalog.jobs.isEmpty()) {
@@ -131,21 +232,71 @@ object GameSession {
         }
         contentError = null
 
-        val loaded = GameStorage(context).load()
-        if (loaded != null) {
-            character = loaded
+        val server = client() ?: return
+        loading = true
+        loadError = null
+        val result = server.getCharacter().mapCatching { remote ->
+            remote ?: importLocalSave(context, server)
+        }.checkAuth()
+        loading = false
+        result
+            .onSuccess {
+                character = it
+                needsCharacter = it == null
+            }
+            .onFailure { if (it !is Unauthorized) loadError = it.message ?: "Couldn't load your character." }
+    }
+
+    /**
+     * One-time import of a character saved on the phone before the server
+     * existed. The file is deleted only after the server has accepted it, so a
+     * failed upload leaves it in place for the next attempt.
+     */
+    private suspend fun importLocalSave(context: Context, server: ServerClient): CharacterState? {
+        val storage = GameStorage(context)
+        val local = storage.load() ?: return null
+        server.putCharacter(local).getOrThrow()
+        storage.clear()
+        return local
+    }
+
+    /** Creates the player's character on the server from the creator screen. */
+    suspend fun createCharacter(name: String, startingJob: JobDefinition): Result<Unit> {
+        val server = client() ?: return Result.failure(IOException("Not signed in."))
+        return server.createCharacter(name, startingJob.id).checkAuth().map {
+            character = it
             needsCharacter = false
-        } else {
-            needsCharacter = true
         }
     }
 
-    /** Creates the player's character from the creator screen and persists it immediately. */
-    fun createCharacter(context: Context, name: String, startingJob: JobDefinition) {
-        val created = CharacterFactory.newCharacter(name, startingJob)
-        GameStorage(context).save(created)
-        character = created
-        needsCharacter = false
+    /**
+     * Uploads the current character in the background. Always sends the latest
+     * state at the time the lock is taken, so a retry also covers every earlier
+     * failed upload.
+     *
+     * shortcut: client-authoritative progress, and a win made while the server is
+     * unreachable is lost if the process dies before a retry succeeds; replaced
+     * when step 5 runs combat server-side.
+     */
+    private fun syncCharacter() {
+        val server = client() ?: return
+        scope.launch {
+            syncMutex.withLock {
+                val state = character ?: return@withLock
+                server.putCharacter(state).checkAuth()
+                    .onSuccess { syncError = null }
+                    .onFailure {
+                        if (it !is Unauthorized) {
+                            syncError = "Progress not saved to the server yet (${it.message}). It retries automatically."
+                        }
+                    }
+            }
+        }
+    }
+
+    /** Called when the map resumes: retries a failed progress upload. */
+    fun retrySync() {
+        if (syncError != null) syncCharacter()
     }
 
     /**
@@ -217,7 +368,6 @@ object GameSession {
         }
 
         val enc = encounter ?: return
-        ensureCharacter(context)
         val currentCharacter = character ?: return
 
         val catalog = ContentRepository.catalog(context)
@@ -228,8 +378,8 @@ object GameSession {
 
     /**
      * Applies the battle's outcome: on [BattleResult.VICTORY], awards xp and job
-     * points, recomputes unlocks, and persists immediately via [GameStorage] —
-     * process death must not lose a won fight. Either way, clears the finished
+     * points, recomputes unlocks, and uploads it to the server straight away
+     * (see [syncCharacter]). Either way, clears the finished
      * battle so a new encounter can be seeded.
      */
     fun endBattle(result: BattleResult, context: Context) {
@@ -245,7 +395,9 @@ object GameSession {
             var updated = Progression.awardVictory(currentCharacter, defeatedMonsters)
             updated = Progression.recomputeUnlocks(updated, catalog.jobs)
             character = updated
-            GameStorage(context).save(updated)
+            syncCharacter()
+        } else {
+            retrySync()
         }
 
         battle = null
@@ -261,4 +413,11 @@ object GameSession {
 
     /** Re-seed once the encounter is further than this many leash radii away. */
     private const val RESEED_DISTANCE_FACTOR = 5.0
+}
+
+/** Location upload throttle (docs/GAME_DESIGN.md): first fix, then every 30 s or after 50 m. */
+internal fun shouldSendFix(lastSent: GeoPoint?, lastSentAtMillis: Long, fix: GeoPoint, nowMillis: Long): Boolean {
+    if (lastSent == null) return true
+    if (nowMillis - lastSentAtMillis >= 30_000L) return true
+    return LocalTangentPlane(lastSent).distanceMetres(lastSent, fix) >= 50.0
 }
