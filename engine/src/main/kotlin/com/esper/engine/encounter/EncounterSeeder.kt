@@ -12,7 +12,7 @@ import kotlin.math.sin
 /** Places one encounter near the player's real position, on-device. */
 class EncounterSeeder(
     private val monsterPool: List<MonsterDefinition>,
-    private val safety: SafeLocationChecker = AlwaysSafe,
+    private val safety: SafeLocationChecker,
     private val maxAttempts: Int = 16,
 ) {
     /**

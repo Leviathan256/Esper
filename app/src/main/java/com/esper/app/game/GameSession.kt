@@ -16,8 +16,10 @@ import com.esper.engine.encounter.Battle
 import com.esper.engine.encounter.BattleBuilder
 import com.esper.engine.encounter.Encounter
 import com.esper.engine.encounter.EncounterSeeder
+import com.esper.engine.encounter.GeodataSafetyChecker
 import com.esper.engine.geometry.GeoPoint
 import com.esper.engine.geometry.LocalTangentPlane
+import kotlinx.coroutines.CancellationException
 import kotlin.math.max
 
 /**
@@ -60,6 +62,10 @@ object GameSession {
         private set
 
     var character by mutableStateOf<CharacterState?>(null)
+        private set
+
+    /** Why no encounter could be seeded, shown instead of "none nearby yet". */
+    var encounterNotice by mutableStateOf<String?>(null)
         private set
 
     /** Non-null when content failed to load; surfaced instead of crashing. */
@@ -142,8 +148,14 @@ object GameSession {
         needsCharacter = false
     }
 
-    /** Seeds one encounter near [radiusCenter], re-seeding if the leash has moved away from it. */
-    fun ensureEncounter(context: Context) {
+    /**
+     * Seeds one encounter near [radiusCenter], re-seeding if the leash has moved away from it.
+     *
+     * Fails closed: if the surrounding roads, water and private land can't be
+     * fetched, nothing is seeded, because seeding blind could put the encounter
+     * on a road (docs/GAME_DESIGN.md, Combat safety rules).
+     */
+    suspend fun ensureEncounter(context: Context) {
         val center = radiusCenter ?: return
 
         val existing = encounter
@@ -162,9 +174,22 @@ object GameSession {
             return
         }
 
-        val seeder = EncounterSeeder(catalog.monsters)
+        val hazards = try {
+            HazardSource.around(center, HAZARD_QUERY_RADIUS_METRES)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            encounterNotice = "Can't check the area is safe right now (offline?), so no encounter yet."
+            return
+        }
+        // A fight may have started while the request was in flight.
+        if (battle != null) return
+
+        val seeder = EncounterSeeder(catalog.monsters, GeodataSafetyChecker(hazards))
+        val seeded = seeder.seedNear(center, SystemRandom)
+        encounterNotice = if (seeded == null) "No safe spot nearby: try moving away from roads or water." else null
         // Keep the old encounter if seeding failed rather than dropping to null.
-        encounter = seeder.seedNear(center, SystemRandom) ?: existing
+        encounter = seeded ?: existing
     }
 
     /** Straight-line distance from the leash centre to the active encounter, if any. */
@@ -227,6 +252,12 @@ object GameSession {
         engine = null
         encounter = null
     }
+
+    /**
+     * Covers the 10 m seeding ring plus the widest default buffered hazard (a
+     * river: 10 m half-width + 2 m clearance) with room for wider `width` tags.
+     */
+    private const val HAZARD_QUERY_RADIUS_METRES = 40.0
 
     /** Re-seed once the encounter is further than this many leash radii away. */
     private const val RESEED_DISTANCE_FACTOR = 5.0

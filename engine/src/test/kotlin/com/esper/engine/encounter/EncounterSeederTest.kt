@@ -31,7 +31,7 @@ class EncounterSeederTest {
 
     @Test
     fun `anchor distance always falls within the requested radius`() {
-        val seeder = EncounterSeeder(pool)
+        val seeder = EncounterSeeder(pool, safety = { true })
         val plane = LocalTangentPlane(center)
         // One shared rng advanced across all 1000 draws: reseeding java.util.Random with
         // small sequential longs correlates its very first output, so statistical
@@ -47,7 +47,7 @@ class EncounterSeederTest {
 
     @Test
     fun `bearings cover all four quadrants across many seeds`() {
-        val seeder = EncounterSeeder(pool)
+        val seeder = EncounterSeeder(pool, safety = { true })
         val plane = LocalTangentPlane(center)
         val rng = SeededRandom(5678L)
         var ne = false
@@ -69,7 +69,7 @@ class EncounterSeederTest {
 
     @Test
     fun `monster ids only ever come from the supplied pool and count is 1 or 2`() {
-        val seeder = EncounterSeeder(pool)
+        val seeder = EncounterSeeder(pool, safety = { true })
         val poolIds = pool.map { it.id }.toSet()
         val rng = SeededRandom(4242L)
         repeat(500) { i ->
@@ -81,7 +81,7 @@ class EncounterSeederTest {
 
     @Test
     fun `the same seed always produces an identical encounter`() {
-        val seeder = EncounterSeeder(pool)
+        val seeder = EncounterSeeder(pool, safety = { true })
         val first = seeder.seedNear(center, SeededRandom(99L))
         val second = seeder.seedNear(center, SeededRandom(99L))
         assertEquals(first, second)
@@ -89,7 +89,7 @@ class EncounterSeederTest {
 
     @Test
     fun `an empty pool returns null`() {
-        val seeder = EncounterSeeder(emptyList())
+        val seeder = EncounterSeeder(emptyList(), safety = { true })
         assertNull(seeder.seedNear(center, SeededRandom(1L)))
     }
 
