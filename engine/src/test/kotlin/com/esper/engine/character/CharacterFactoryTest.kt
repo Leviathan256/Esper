@@ -43,4 +43,14 @@ class CharacterFactoryTest {
         val b = CharacterFactory.newCharacter("B", squire)
         assertEquals(a.baseScores, b.baseScores)
     }
+
+    @Test
+    fun `startingJobs keeps only jobs without prerequisites`() {
+        val knight = squire.copy(id = "knight", displayName = "Knight", prerequisites = listOf("squire"))
+        val apprentice = squire.copy(id = "apprentice", displayName = "Apprentice")
+        assertEquals(
+            listOf("squire", "apprentice"),
+            CharacterFactory.startingJobs(listOf(squire, knight, apprentice)).map { it.id },
+        )
+    }
 }

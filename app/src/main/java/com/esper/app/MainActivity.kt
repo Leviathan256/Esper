@@ -28,10 +28,12 @@ import androidx.navigation.compose.rememberNavController
 import com.esper.app.core.CrashLog
 import com.esper.app.core.EventLog
 import com.esper.app.core.Settings
+import com.esper.app.game.GameSession
 import com.esper.app.ui.ClaudeScreen
 import com.esper.app.ui.MapScreen
 import com.esper.app.ui.PromptsScreen
 import com.esper.app.ui.SettingsScreen
+import com.esper.app.ui.game.CharacterCreatorScreen
 import com.esper.app.ui.game.CharacterSheetScreen
 import com.esper.app.ui.game.CombatScreen
 import org.osmdroid.config.Configuration
@@ -69,6 +71,12 @@ private object Routes {
 private fun EsperApp() {
     val context = LocalContext.current
     val settings = remember(context) { Settings(context) }
+    // Synchronous so a fresh install lands on the creator, never a flash of the map.
+    remember(context) { GameSession.ensureCharacter(context) }
+    if (GameSession.needsCharacter) {
+        CharacterCreatorScreen()
+        return
+    }
     EsperScaffold(navController = rememberNavController(), settings = settings)
 }
 
