@@ -32,11 +32,14 @@ you type a request in the app
 
 ## Install via Obtainium
 
-Add this repo in **Obtainium** using the **GitHub Releases** source:
+In **Obtainium**, tap **Add App** and paste `https://github.com/Leviathan256/Esper`
+(source: GitHub). Then pick a channel:
 
-- **Stable tags** — asset `Esper.apk`
-- **Nightly** (rolling `nightly` prerelease) — asset `Esper-nightly.apk`; enable
-  *Include prereleases*
+- **Nightly** (rolling `nightly` prerelease, every merge to `main`) — asset
+  `Esper-nightly.apk`. Turn on **Include prereleases** and **Use release title
+  as version**. The tag is always `nightly`; the title carries the real version
+  (`nightly-<sha>`), so without the second toggle Obtainium never sees an update.
+- **Stable tags** (`v*`) — asset `Esper.apk`. Default settings.
 
 For the shortest push-to-phone time, set Obtainium's background check interval
 to 15 minutes and turn on background updates. The app's own update banner is
