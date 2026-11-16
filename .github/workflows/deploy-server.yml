@@ -1,14 +1,14 @@
 name: Deploy server
 
-# Builds and tests :server, then rsyncs the install dist to the Oracle VM.
-# Never touches the rolling "nightly" tag or any release. Until the deploy
-# secrets exist the job only builds and tests, and stays green.
+# Tests the Rust server, pushes its image to GHCR tagged by commit, then joins
+# the tailnet and applies deploy/k8s to the k3s host (docs/SERVER.md §9).
+# Never touches the rolling "nightly" tag or any release. Until the Tailscale
+# secrets exist the deploy job says it skipped and stays green.
 on:
   push:
     branches: [main]
     paths:
       - "server/**"
-      - "engine/**"
       - "content/**"
       - "deploy/**"
       - ".github/workflows/deploy-server.yml"
@@ -21,13 +21,16 @@ concurrency:
   group: deploy-server
   cancel-in-progress: false
 
+env:
+  IMAGE: ghcr.io/leviathan256/esper-server
+
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_PASSWORD: esper
           POSTGRES_DB: esper_test
@@ -38,45 +41,117 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      ESPER_TEST_DB_URL: jdbc:postgresql://localhost:5432/esper_test?user=postgres&password=esper
-      HOST: ${{ secrets.ESPER_SERVER_HOST }}
+      ESPER_TEST_DB_URL: postgres://postgres:esper@localhost:5432/esper_test
+      SQLX_OFFLINE: "true"
+    defaults:
+      run:
+        working-directory: server
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          distribution: temurin
-          java-version: "17"
+          fetch-depth: 1
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          gradle-version: "8.7"
-          cache-read-only: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
-          add-job-summary: on-failure
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Test and assemble server
-        run: gradle :server:test :server:installDist --console=plain
+      # Only ever tagged by commit: the cluster runs exactly the commit that was tested.
+      - name: Build and push (linux/amd64, linux/arm64)
+        run: >-
+          docker buildx build -f server/Dockerfile
+          --platform linux/amd64,linux/arm64
+          --tag "${IMAGE}:${GITHUB_SHA}" --push .
 
-      - name: Deploy
-        if: env.HOST != ''
+  deploy:
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Secrets cannot appear in `if:`; an empty value means the secret is not set.
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+    steps:
+      - name: Note skipped deploy
+        if: env.TS_OAUTH_CLIENT_ID == ''
+        run: |
+          echo "::notice::deploy skipped: no Tailscale credentials"
+          echo "deploy skipped: no Tailscale credentials (TS_OAUTH_CLIENT_ID is not set)" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Checkout
+        if: env.TS_OAUTH_CLIENT_ID != ''
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Join the tailnet
+        if: env.TS_OAUTH_CLIENT_ID != ''
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Write kubeconfig
+        if: env.TS_OAUTH_CLIENT_ID != ''
         env:
-          SSH_KEY: ${{ secrets.ESPER_SERVER_SSH_KEY }}
-          KNOWN_HOSTS: ${{ secrets.ESPER_SERVER_KNOWN_HOSTS }}
+          KUBECONFIG_DATA: ${{ secrets.ESPER_KUBECONFIG }}
         run: |
           set -euo pipefail
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "${SSH_KEY}" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
-          printf '%s\n' "${KNOWN_HOSTS}" > ~/.ssh/known_hosts
-          SSH="ssh -i $HOME/.ssh/id_deploy -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes"
-          rsync -az --delete -e "${SSH}" server/build/install/server/ "esper@${HOST}:/opt/esper/server/"
-          ${SSH} "esper@${HOST}" sudo systemctl restart esper-server
-          curl -fsS --retry 10 --retry-delay 3 --retry-connrefused "https://${HOST}/healthz"
+          install -m 700 -d ~/.kube
+          printf '%s\n' "${KUBECONFIG_DATA}" > ~/.kube/config
+          chmod 600 ~/.kube/config
 
-      - name: Note skipped deploy
-        if: env.HOST == ''
-        run: echo "deploy skipped - no ESPER_SERVER_HOST secret" >> "${GITHUB_STEP_SUMMARY}"
+      - name: Apply manifests
+        if: env.TS_OAUTH_CLIENT_ID != ''
+        working-directory: deploy/k8s/overlays/prod
+        run: |
+          set -euo pipefail
+          kustomize edit set image "${IMAGE}:${GITHUB_SHA}"
+          kubectl apply -k .
+          kubectl -n esper rollout status deploy/esper-server --timeout=5m
+
+      - name: Check https://esper.media/healthz
+        if: env.TS_OAUTH_CLIENT_ID != ''
+        run: |
+          set -euo pipefail
+          # Retries cover the first certificate issuance and Cloudflare reaching the new pod.
+          body="$(curl -fsS --retry 20 --retry-delay 15 --retry-all-errors https://esper.media/healthz)"
+          [ "$body" = ok ] || { echo "healthz answered: $body"; exit 1; }
+          echo "deployed ${GITHUB_SHA}: https://esper.media/healthz is ok" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Cluster state on failure
+        if: failure() && env.TS_OAUTH_CLIENT_ID != ''
+        run: |
+          kubectl -n esper get pods,ingress,certificate || true
+          kubectl -n esper logs deploy/esper-server --tail=100 || true
