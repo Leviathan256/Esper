@@ -76,7 +76,14 @@ Variable (Variables tab): `ESPER_SERVER_URL` = `https://esper.media`.
 ## 7. Deploy
 
 Actions tab, workflow "Deploy server", Run workflow (it also runs on pushes to
-`main` touching `server/`, `content/` or `deploy/`). Then:
+`main` touching `server/`, `content/` or `deploy/`).
+
+GHCR makes a new package private, and the cluster pulls without credentials.
+After the first run has pushed the image: your GitHub profile, Packages,
+`esper-server`, Package settings, Change visibility, **Public**. Then re-run
+the workflow (a private image shows as `ImagePullBackOff` in the pod list).
+
+Then:
 
 ```bash
 curl https://esper.media/healthz                       # prints: ok
