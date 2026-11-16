@@ -1,0 +1,461 @@
+{
+    "seed": 7,
+    "encounter": {
+        "monsterIds": [
+            "goblin",
+            "goblin"
+        ],
+        "boardRadiusCells": 12
+    },
+    "character": {
+        "schemaVersion": 1,
+        "name": "Ramza",
+        "baseScores": {
+            "str": 14,
+            "dex": 12,
+            "con": 13,
+            "int": 10,
+            "wis": 10,
+            "cha": 10
+        },
+        "currentJobId": "knight",
+        "level": 3,
+        "xp": 350,
+        "jobPoints": {
+            "squire": 100,
+            "knight": 40
+        },
+        "unlockedJobIds": [
+            "squire",
+            "knight"
+        ],
+        "learnedAbilityIds": [
+            "shield_bash",
+            "guard"
+        ],
+        "bestiary": {
+            "goblin": {
+                "monsterId": "goblin",
+                "timesDefeated": 5
+            },
+            "wolf": {
+                "monsterId": "wolf",
+                "timesDefeated": 1
+            }
+        }
+    },
+    "allies": [],
+    "units": [
+        {
+            "id": "player",
+            "displayName": "Ramza",
+            "playerControlled": true,
+            "sourceId": "knight",
+            "stats": {
+                "maxHp": 28,
+                "armorClass": 16,
+                "attackBonus": 6,
+                "damage": "1d10+5",
+                "speed": 7,
+                "moveRangeCells": 4,
+                "attackRangeCells": 1
+            },
+            "currentHp": 28,
+            "position": {
+                "q": 0,
+                "r": 0
+            },
+            "atbGauge": 0.0
+        },
+        {
+            "id": "goblin#0",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 7,
+            "position": {
+                "q": -4,
+                "r": 0
+            },
+            "atbGauge": 0.0
+        },
+        {
+            "id": "goblin#1",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 7,
+            "position": {
+                "q": 0,
+                "r": 4
+            },
+            "atbGauge": 0.0
+        }
+    ],
+    "turns": [
+        {
+            "actor": "goblin#0",
+            "gauges": {
+                "player": 105.0,
+                "goblin#0": 105.0,
+                "goblin#1": 105.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": 99,
+                            "r": 0
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "ActionRejected",
+                            "unitId": "goblin#0",
+                            "reason": "illegal move to HexCoord(q=99, r=0)"
+                        }
+                    ]
+                },
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "nobody"
+                    },
+                    "events": [
+                        {
+                            "type": "ActionRejected",
+                            "unitId": "goblin#0",
+                            "reason": "no valid target nobody"
+                        }
+                    ]
+                },
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "ActionRejected",
+                            "unitId": "goblin#0",
+                            "reason": "target player out of range"
+                        }
+                    ]
+                },
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": -1,
+                            "r": 0
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "goblin#0",
+                            "from": {
+                                "q": -4,
+                                "r": 0
+                            },
+                            "to": {
+                                "q": -1,
+                                "r": 0
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "goblin#1",
+            "gauges": {
+                "player": 105.0,
+                "goblin#0": 5.0,
+                "goblin#1": 105.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": 0,
+                            "r": 1
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "goblin#1",
+                            "from": {
+                                "q": 0,
+                                "r": 4
+                            },
+                            "to": {
+                                "q": 0,
+                                "r": 1
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 105.0,
+                "goblin#0": 5.0,
+                "goblin#1": 5.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#0"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "player",
+                            "targetId": "goblin#0",
+                            "roll": {
+                                "d20": 17,
+                                "total": 23,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 10,
+                            "targetHpAfter": 0
+                        },
+                        {
+                            "type": "Defeated",
+                            "unitId": "goblin#0"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "goblin#1",
+            "gauges": {
+                "player": 103.0,
+                "goblin#0": 5.0,
+                "goblin#1": 103.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "goblin#1",
+                            "targetId": "player",
+                            "roll": {
+                                "d20": 6,
+                                "total": 10,
+                                "hit": false,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 0,
+                            "targetHpAfter": 28
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 103.0,
+                "goblin#0": 5.0,
+                "goblin#1": 3.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#1"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "player",
+                            "targetId": "goblin#1",
+                            "roll": {
+                                "d20": 5,
+                                "total": 11,
+                                "hit": false,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 0,
+                            "targetHpAfter": 7
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "goblin#1",
+            "gauges": {
+                "player": 101.0,
+                "goblin#0": 5.0,
+                "goblin#1": 101.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "goblin#1",
+                            "targetId": "player",
+                            "roll": {
+                                "d20": 1,
+                                "total": 5,
+                                "hit": false,
+                                "critical": false,
+                                "fumble": true
+                            },
+                            "damage": 0,
+                            "targetHpAfter": 28
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 101.0,
+                "goblin#0": 5.0,
+                "goblin#1": 1.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#1"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "player",
+                            "targetId": "goblin#1",
+                            "roll": {
+                                "d20": 15,
+                                "total": 21,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 14,
+                            "targetHpAfter": 0
+                        },
+                        {
+                            "type": "Defeated",
+                            "unitId": "goblin#1"
+                        },
+                        {
+                            "type": "BattleEnded",
+                            "result": "VICTORY"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "result": "VICTORY",
+    "finalUnits": [
+        {
+            "id": "player",
+            "displayName": "Ramza",
+            "playerControlled": true,
+            "sourceId": "knight",
+            "stats": {
+                "maxHp": 28,
+                "armorClass": 16,
+                "attackBonus": 6,
+                "damage": "1d10+5",
+                "speed": 7,
+                "moveRangeCells": 4,
+                "attackRangeCells": 1
+            },
+            "currentHp": 28,
+            "position": {
+                "q": 0,
+                "r": 0
+            },
+            "atbGauge": 1.0
+        },
+        {
+            "id": "goblin#0",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 0,
+            "position": {
+                "q": -1,
+                "r": 0
+            },
+            "atbGauge": 5.0
+        },
+        {
+            "id": "goblin#1",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 0,
+            "position": {
+                "q": 0,
+                "r": 1
+            },
+            "atbGauge": 1.0
+        }
+    ]
+}

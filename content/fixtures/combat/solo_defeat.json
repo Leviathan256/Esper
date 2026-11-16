@@ -1,0 +1,626 @@
+{
+    "seed": 3,
+    "encounter": {
+        "monsterIds": [
+            "wolf",
+            "wolf",
+            "goblin"
+        ],
+        "boardRadiusCells": 12
+    },
+    "character": {
+        "schemaVersion": 1,
+        "name": "Ash",
+        "baseScores": {
+            "str": 14,
+            "dex": 12,
+            "con": 13,
+            "int": 10,
+            "wis": 10,
+            "cha": 10
+        },
+        "currentJobId": "squire",
+        "level": 1,
+        "xp": 0,
+        "jobPoints": {},
+        "unlockedJobIds": [],
+        "learnedAbilityIds": [],
+        "bestiary": {}
+    },
+    "allies": [],
+    "units": [
+        {
+            "id": "player",
+            "displayName": "Ash",
+            "playerControlled": true,
+            "sourceId": "squire",
+            "stats": {
+                "maxHp": 11,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d8+2",
+                "speed": 8,
+                "moveRangeCells": 4,
+                "attackRangeCells": 1
+            },
+            "currentHp": 11,
+            "position": {
+                "q": 0,
+                "r": 0
+            },
+            "atbGauge": 0.0
+        },
+        {
+            "id": "wolf#0",
+            "displayName": "Wolf",
+            "playerControlled": false,
+            "sourceId": "wolf",
+            "stats": {
+                "maxHp": 9,
+                "armorClass": 12,
+                "attackBonus": 3,
+                "damage": "1d6+1",
+                "speed": 14,
+                "moveRangeCells": 5,
+                "attackRangeCells": 1
+            },
+            "currentHp": 9,
+            "position": {
+                "q": -4,
+                "r": 0
+            },
+            "atbGauge": 0.0
+        },
+        {
+            "id": "wolf#1",
+            "displayName": "Wolf",
+            "playerControlled": false,
+            "sourceId": "wolf",
+            "stats": {
+                "maxHp": 9,
+                "armorClass": 12,
+                "attackBonus": 3,
+                "damage": "1d6+1",
+                "speed": 14,
+                "moveRangeCells": 5,
+                "attackRangeCells": 1
+            },
+            "currentHp": 9,
+            "position": {
+                "q": -2,
+                "r": 4
+            },
+            "atbGauge": 0.0
+        },
+        {
+            "id": "goblin#2",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 7,
+            "position": {
+                "q": 2,
+                "r": 2
+            },
+            "atbGauge": 0.0
+        }
+    ],
+    "turns": [
+        {
+            "actor": "wolf#0",
+            "gauges": {
+                "player": 64.0,
+                "wolf#0": 112.0,
+                "wolf#1": 112.0,
+                "goblin#2": 56.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": 99,
+                            "r": 0
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "ActionRejected",
+                            "unitId": "wolf#0",
+                            "reason": "illegal move to HexCoord(q=99, r=0)"
+                        }
+                    ]
+                },
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "nobody"
+                    },
+                    "events": [
+                        {
+                            "type": "ActionRejected",
+                            "unitId": "wolf#0",
+                            "reason": "no valid target nobody"
+                        }
+                    ]
+                },
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "ActionRejected",
+                            "unitId": "wolf#0",
+                            "reason": "target player out of range"
+                        }
+                    ]
+                },
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": -1,
+                            "r": 0
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "wolf#0",
+                            "from": {
+                                "q": -4,
+                                "r": 0
+                            },
+                            "to": {
+                                "q": -1,
+                                "r": 0
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "wolf#1",
+            "gauges": {
+                "player": 64.0,
+                "wolf#0": 12.0,
+                "wolf#1": 112.0,
+                "goblin#2": 56.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": -1,
+                            "r": 1
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "wolf#1",
+                            "from": {
+                                "q": -2,
+                                "r": 4
+                            },
+                            "to": {
+                                "q": -1,
+                                "r": 1
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 104.0,
+                "wolf#0": 82.0,
+                "wolf#1": 82.0,
+                "goblin#2": 91.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "wolf#0"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "player",
+                            "targetId": "wolf#0",
+                            "roll": {
+                                "d20": 15,
+                                "total": 19,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 7,
+                            "targetHpAfter": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "goblin#2",
+            "gauges": {
+                "player": 20.0,
+                "wolf#0": 110.0,
+                "wolf#1": 110.0,
+                "goblin#2": 105.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": 0,
+                            "r": 1
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "goblin#2",
+                            "from": {
+                                "q": 2,
+                                "r": 2
+                            },
+                            "to": {
+                                "q": 0,
+                                "r": 1
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "wolf#0",
+            "gauges": {
+                "player": 20.0,
+                "wolf#0": 110.0,
+                "wolf#1": 110.0,
+                "goblin#2": 5.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "wolf#0",
+                            "targetId": "player",
+                            "roll": {
+                                "d20": 11,
+                                "total": 14,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 3,
+                            "targetHpAfter": 8
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "wolf#1",
+            "gauges": {
+                "player": 20.0,
+                "wolf#0": 10.0,
+                "wolf#1": 110.0,
+                "goblin#2": 5.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "wolf#1",
+                            "targetId": "player",
+                            "roll": {
+                                "d20": 9,
+                                "total": 12,
+                                "hit": false,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 0,
+                            "targetHpAfter": 8
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "wolf#0",
+            "gauges": {
+                "player": 76.0,
+                "wolf#0": 108.0,
+                "wolf#1": 108.0,
+                "goblin#2": 54.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "wolf#0",
+                            "targetId": "player",
+                            "roll": {
+                                "d20": 3,
+                                "total": 6,
+                                "hit": false,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 0,
+                            "targetHpAfter": 8
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "wolf#1",
+            "gauges": {
+                "player": 76.0,
+                "wolf#0": 8.0,
+                "wolf#1": 108.0,
+                "goblin#2": 54.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "wolf#1",
+                            "targetId": "player",
+                            "roll": {
+                                "d20": 10,
+                                "total": 13,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 6,
+                            "targetHpAfter": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 100.0,
+                "wolf#0": 50.0,
+                "wolf#1": 50.0,
+                "goblin#2": 75.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "wolf#0"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "player",
+                            "targetId": "wolf#0",
+                            "roll": {
+                                "d20": 20,
+                                "total": 24,
+                                "hit": true,
+                                "critical": true,
+                                "fumble": false
+                            },
+                            "damage": 15,
+                            "targetHpAfter": 0
+                        },
+                        {
+                            "type": "Defeated",
+                            "unitId": "wolf#0"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "goblin#2",
+            "gauges": {
+                "player": 32.0,
+                "wolf#0": 50.0,
+                "wolf#1": 106.0,
+                "goblin#2": 103.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "goblin#2",
+                            "targetId": "player",
+                            "roll": {
+                                "d20": 3,
+                                "total": 7,
+                                "hit": false,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 0,
+                            "targetHpAfter": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "wolf#1",
+            "gauges": {
+                "player": 32.0,
+                "wolf#0": 50.0,
+                "wolf#1": 106.0,
+                "goblin#2": 3.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "wolf#1",
+                            "targetId": "player",
+                            "roll": {
+                                "d20": 18,
+                                "total": 21,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 6,
+                            "targetHpAfter": 0
+                        },
+                        {
+                            "type": "Defeated",
+                            "unitId": "player"
+                        },
+                        {
+                            "type": "BattleEnded",
+                            "result": "DEFEAT"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "result": "DEFEAT",
+    "finalUnits": [
+        {
+            "id": "player",
+            "displayName": "Ash",
+            "playerControlled": true,
+            "sourceId": "squire",
+            "stats": {
+                "maxHp": 11,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d8+2",
+                "speed": 8,
+                "moveRangeCells": 4,
+                "attackRangeCells": 1
+            },
+            "currentHp": 0,
+            "position": {
+                "q": 0,
+                "r": 0
+            },
+            "atbGauge": 32.0
+        },
+        {
+            "id": "wolf#0",
+            "displayName": "Wolf",
+            "playerControlled": false,
+            "sourceId": "wolf",
+            "stats": {
+                "maxHp": 9,
+                "armorClass": 12,
+                "attackBonus": 3,
+                "damage": "1d6+1",
+                "speed": 14,
+                "moveRangeCells": 5,
+                "attackRangeCells": 1
+            },
+            "currentHp": 0,
+            "position": {
+                "q": -1,
+                "r": 0
+            },
+            "atbGauge": 50.0
+        },
+        {
+            "id": "wolf#1",
+            "displayName": "Wolf",
+            "playerControlled": false,
+            "sourceId": "wolf",
+            "stats": {
+                "maxHp": 9,
+                "armorClass": 12,
+                "attackBonus": 3,
+                "damage": "1d6+1",
+                "speed": 14,
+                "moveRangeCells": 5,
+                "attackRangeCells": 1
+            },
+            "currentHp": 9,
+            "position": {
+                "q": -1,
+                "r": 1
+            },
+            "atbGauge": 6.0
+        },
+        {
+            "id": "goblin#2",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 7,
+            "position": {
+                "q": 0,
+                "r": 1
+            },
+            "atbGauge": 3.0
+        }
+    ]
+}
