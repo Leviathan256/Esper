@@ -149,7 +149,8 @@ fn app(state: AppState) -> Router {
         .route("/v1/auth/login/options", post(passkeys::login_options))
         .route("/v1/auth/login/verify", post(passkeys::login_verify))
         .route("/v1/auth/logout", post(sessions::logout))
-        .layer(
+        // route_layer, not layer: layer would also wrap the fallback, so unknown paths would spend the sign-in budget.
+        .route_layer(
             GovernorLayer::new(state.auth_limit.clone())
                 .error_handler(|_| ApiError::RATE_LIMITED.into_response()),
         );
@@ -431,11 +432,18 @@ mod tests {
         assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
         assert!(body.contains(r#""error":"rate_limited""#), "{body}");
         assert_eq!(options("203.0.113.2").await.0, StatusCode::OK);
-        // Other routes are not limited.
-        assert_eq!(
-            get_healthz(dead_pool()).await.0,
-            StatusCode::SERVICE_UNAVAILABLE
-        );
+        // Other routes, unknown paths included, are not limited, even for the drained IP.
+        // Unknown path first: /healthz on the dead pool waits long enough for a token to refill.
+        for (path, want) in [
+            ("/nope", StatusCode::NOT_FOUND),
+            ("/healthz", StatusCode::SERVICE_UNAVAILABLE),
+        ] {
+            let req = Request::get(path)
+                .header("CF-Connecting-IP", "203.0.113.1")
+                .body(Body::empty())
+                .unwrap();
+            assert_eq!(send(&app, req).await.0, want, "{path}");
+        }
     }
 
     #[tokio::test]
