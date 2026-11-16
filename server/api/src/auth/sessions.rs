@@ -3,6 +3,8 @@
 //!
 //! shortcut: no token rotation; add it if a token ever leaks in practice.
 
+use std::sync::Arc;
+
 use axum::{
     extract::{FromRef, FromRequestParts, State},
     http::{StatusCode, header::AUTHORIZATION, request::Parts},
@@ -12,7 +14,7 @@ use sha2::{Digest, Sha256};
 use sqlx::{PgConnection, PgPool};
 use webauthn_rs::prelude::Uuid;
 
-use crate::error::ApiError;
+use crate::{error::ApiError, location::Positions};
 
 /// Keep only the newest sessions per account, so scripted sign-ins cannot fill the disk.
 const MAX_PER_ACCOUNT: i64 = 10;
@@ -78,7 +80,6 @@ pub async fn purge_expired(pool: &PgPool) -> Result<(), sqlx::Error> {
 /// Bearer extractor: a route that takes a `Session` answers 401 to a missing,
 /// unknown or expired token. Keeps the hash so logout deletes exactly this session.
 pub struct Session {
-    #[allow(dead_code)] // read by the character and location routes (#16, #17)
     pub account_id: Uuid,
     token_hash: Vec<u8>,
 }
@@ -108,14 +109,26 @@ where
     }
 }
 
-/// `POST /v1/auth/logout`: deletes this session only.
-pub async fn logout(State(pool): State<PgPool>, session: Session) -> Result<StatusCode, ApiError> {
+impl Session {
+    /// False once this session is logged out or expired, or the database is unreachable.
+    pub async fn is_live(&self, pool: &PgPool) -> bool {
+        matches!(validate(pool, &self.token_hash).await, Ok(Some(_)))
+    }
+}
+
+/// `POST /v1/auth/logout`: deletes this session only, and the account's position.
+pub async fn logout(
+    State(pool): State<PgPool>,
+    State(positions): State<Arc<Positions>>,
+    session: Session,
+) -> Result<StatusCode, ApiError> {
     sqlx::query!(
         "DELETE FROM sessions WHERE token_hash = $1",
         session.token_hash
     )
     .execute(&pool)
     .await?;
+    positions.remove(session.account_id);
     Ok(StatusCode::NO_CONTENT)
 }
 

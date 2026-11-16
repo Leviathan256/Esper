@@ -61,7 +61,7 @@ Android app ─HTTPS─▶ Cloudflare (proxy, Full strict) ─HTTPS─▶ Traefi
 | `api/src/config.rs` | §8. Fails fast on empty `ESPER_RP_ORIGINS`. |
 | `api/src/auth/{passkeys,sessions}.rs` | webauthn-rs, ceremony store, the four ceremony routes; session issue / validate / slide / delete, bearer extractor |
 | `api/src/character.rs` | `GET/POST/PUT /v1/character`, `CharacterRules` (pure, in `rules`) |
-| `api/src/location.rs` | `record`, `latest`, `purge`; `Fix`; pure `validate(lat, lon, acc)` |
+| `api/src/location.rs` | `record`, `remove`, `purge`; `Fix`; pure `validate(lat, lon, acc)`; `POST /v1/location` (`latest` arrives with presence) |
 | `api/src/realtime.rs` | `/v1/ws`, `Envelope`, `loc` handler |
 | `api/src/error.rs` | the §5 error body and codes |
 | `migrations/0001_init.sql` | §4 |
