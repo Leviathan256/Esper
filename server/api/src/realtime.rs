@@ -3,6 +3,9 @@
 
 use std::{sync::Arc, time::Duration};
 
+use sqlx::PgPool;
+use tokio::sync::Semaphore;
+
 use axum::{
     extract::{
         State, WebSocketUpgrade,
@@ -22,6 +25,8 @@ use crate::{
     location::{FixBody, Positions},
 };
 
+/// Open sockets across all accounts; far above a handful of players, and bounds memory.
+pub const MAX_SOCKETS: usize = 1000;
 const PING_EVERY: Duration = Duration::from_secs(30);
 /// Closed when the client sends nothing (pongs included) for this long.
 const TIMEOUT: Duration = Duration::from_secs(60);
@@ -50,19 +55,28 @@ impl Envelope {
 /// `GET /v1/ws`: the bearer is checked before the upgrade, so no token means 401.
 pub async fn ws(
     session: Session,
+    State(pool): State<PgPool>,
     State(positions): State<Arc<Positions>>,
+    State(sockets): State<Arc<Semaphore>>,
     upgrade: Result<WebSocketUpgrade, WebSocketUpgradeRejection>,
 ) -> Result<Response, ApiError> {
     let upgrade = upgrade.map_err(|_| ApiError::BAD_REQUEST)?;
-    let account_id = session.account_id;
-    // tungstenite's default is 64 MB per message.
+    let permit = sockets
+        .try_acquire_owned()
+        .map_err(|_| ApiError::RATE_LIMITED)?;
+    // tungstenite's defaults are 64 MB per message and a 128 KB read buffer per socket.
     Ok(upgrade
+        .read_buffer_size(8 * 1024)
         .max_message_size(MAX_BODY)
         .max_frame_size(MAX_BODY)
-        .on_upgrade(move |socket| run(socket, account_id, positions)))
+        .on_upgrade(move |socket| async move {
+            run(socket, session, pool, positions).await;
+            drop(permit);
+        }))
 }
 
-async fn run(mut socket: WebSocket, account_id: Uuid, positions: Arc<Positions>) {
+async fn run(mut socket: WebSocket, session: Session, pool: PgPool, positions: Arc<Positions>) {
+    let account_id = session.account_id;
     if socket
         .send(Envelope::message("hello", None, None))
         .await
@@ -80,6 +94,10 @@ async fn run(mut socket: WebSocket, account_id: Uuid, positions: Arc<Positions>)
                 deadline = Instant::now() + TIMEOUT;
                 // Pongs, binary, close: tungstenite answers pings and closes itself, then recv ends.
                 let Message::Text(text) = msg else { continue };
+                // After logout or expiry the socket must not store a position again.
+                if !session.is_live(&pool).await {
+                    return;
+                }
                 reply(text.as_str(), account_id, &positions)
             }
             _ = ping.tick() => Message::Ping(Default::default()),
