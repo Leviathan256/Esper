@@ -43,4 +43,10 @@ tasks.test {
         "esper.contentDir",
         rootProject.layout.projectDirectory.dir("content").asFile.absolutePath,
     )
+    // The path above is just a string to Gradle; declare the files too, so a
+    // content- or golden-fixture-only change reruns the tests instead of hitting
+    // UP-TO-DATE / FROM-CACHE.
+    inputs.dir(rootProject.layout.projectDirectory.dir("content"))
+        .withPropertyName("content")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }
