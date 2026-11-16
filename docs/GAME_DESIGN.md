@@ -45,10 +45,10 @@ request. Merged changes ship to everyone's phone through Obtainium.
    when their gauge fills. Not strict alternating turns.
 4. **Progression is job-based, not level-only.** A character is defined by the
    jobs they've worked and the abilities carried between them.
-5. **Some things take a group.** Rituals cannot be performed alone (see
-   Rituals). Whether they also require players to be *physically* together is
-   the open half of this pillar, and the only remaining candidate for giving
-   the real map a social role.
+5. **Some things take a group, and some take a group in one place.** Rituals
+   cannot be performed alone (see Rituals). Some Rituals and actions also
+   require **Co-presence**: bodies at the same real spot. Teleported Visitors
+   cannot meet that requirement, so it is what gives the real map a social role.
 
 ## Core loop
 
@@ -210,9 +210,10 @@ region is one of:
 | Guild territory | the claim |
 | An active battle the player is in | where that battle was seeded |
 
-**Low-cost teleportation** moves the avatar between any of these. That includes
-returning to your own radius, hopping to another player's radius, reaching a
-claim, and rejoining a fight you are already part of.
+**Low-cost teleportation** moves the avatar between any of these, solo. That
+includes returning to your own radius, reaching a claim, and rejoining a fight
+you are already part of. **Reaching another player is different**: it is the
+Teleportation Ritual below, and it needs that player to take part.
 
 The anchoring rule matters: while the avatar is in a territory or a battle,
 **that region is the leash — not the player's GPS.** A player at home whose
@@ -220,7 +221,28 @@ avatar is in a friend's territory is playing normally, not cheating, and their
 real movement does not drag the avatar. GPS only governs the radius region.
 
 Teleporting into an active battle is also the reconnect story: a player whose
-app died mid-fight teleports back in rather than forfeiting.
+app died mid-fight is **Absent**, their character stays in the fight (see
+Leaving an encounter), and they teleport back in to take it over again.
+
+**Teleportation Ritual (travel to a player).** Arriving at someone's live
+location is a safety question, so it is never one-sided:
+
+- Only a **friend, guildmate, or party member** can ask. Strangers cannot even
+  send the request, because an unanswered request still says "this person is
+  online".
+- The receiving player, the **Host**, must accept each request live. A request
+  expires after **5 minutes**. There is no standing permission, not even for
+  friends.
+- The arriving player is a **Visitor**. A Visitor's avatar is anchored to the
+  Host, not to the Visitor's GPS: the Visitor walking does not move it.
+- The **Host or the Visitor** can end the visit. The Visitor's avatar then
+  returns at once to the Visitor's real location. A visit ended during an
+  Encounter ends immediately and the Visitor Flees.
+- If the Visitor's body comes into Co-presence with the Host, the visit ends
+  and they are simply co-present. A Visitor in an Encounter stays in it.
+- If the Host goes Absent, the Visitor stays at the Host's last known position.
+  The visit ends after the Host has been Absent for 5 minutes.
+- A Visitor takes part in any Ritual that does not require Co-presence.
 
 This does **not** conflict with pillar 1 — fights still resolve on real
 geography, just not always geography the player is standing on. What it does
@@ -293,42 +315,43 @@ causes fade.
 **Settled: rituals exist, and they are performed by groups of players.** A
 ritual is something no solo player can do.
 
-Everything else about them is open, but the shape of the rest of the design
-constrains them, and there is one decision to make before any of the others
-matter.
+### Co-presence
 
-### The decision that gates the rest
+**Settled: some Rituals and actions require Co-presence; the rest also accept
+Visitors.** Co-presence means bodies at the same real spot: every participant
+within 12 m (one board radius) of the Ritual's starting point. Teleportation
+already lets players reach each other, so remote co-operation is solved;
+Co-presence is the reason to stand in the same street.
 
-**Do rituals require players to be physically together, or only to participate
-at the same time?**
+- Co-presence **begins at once** when a player comes within range.
+- It **ends only after a grace period**, because GPS drifts. The grace is
+  `31 − m` seconds, where `m` is how many metres out of range the player is:
+  30 s at 1 m out, 16 s at 15 m out, 1 s at 30 m out. It is recomputed from the
+  current distance on every fix, and coming back into range resets it.
+- Arriving by teleport **never** counts. A Visitor is somewhere in the game,
+  not in the street.
 
-This is worth answering first because it is the only remaining candidate for
-pillar 5 — the social pillar still marked TODO. Teleportation already lets
-players reach each other's radii and territories, so *remote* co-operation is
-solved. Nothing in the design yet gives a reason to stand in the same physical
-place. If rituals require bodily co-presence, they become that reason, and the
-Pokémon Go half of the premise gets its pillar. If they do not, the real map's
-social role stays decorative.
+### Duration and drop-outs
 
-The obvious objection is a small or scattered player base: a mechanic requiring
-three people in one street is a mechanic nobody performs. A middle path exists —
-rituals are performable remotely, but physically co-present participants count
-for more, or unlock greater rituals — which keeps them accessible while making
-meeting up genuinely better. Recommended, but it is a design call, not mine.
+Rituals take **real time**, about 1–5 minutes depending on the Ritual. If a
+participant drops out partway, the Ritual still completes if enough remain;
+otherwise it fails and its cost is refunded. For a Ritual that requires
+Co-presence, leaving Co-presence (after the grace period) is dropping out.
 
 ### What rituals could be for
 
-Named here because each one plugs a gap that already exists, not as a wishlist:
+Named here because each one plugs a gap that already exists, not as a wishlist.
+Each is marked with whether it requires Co-presence:
 
-- **Summoning a large encounter** the party could not otherwise meet — the raid
+- _[Visitors allowed]_ **Summoning a large encounter** the party could not otherwise meet — the raid
   shape, and a natural fit for ATB combat with several real players.
-- **Staking guild territory**, making a guild claim a ceremony rather than a
+- _[Co-presence]_ **Staking guild territory**, making a guild claim a ceremony rather than a
   button the leader presses alone.
-- **Investing a title** that has faded, so succession is something a guild
+- _[Co-presence]_ **Investing a title** that has faded, so succession is something a guild
   performs together rather than a race to tap first.
-- **Recovering a claim from purgatory**, giving the returning-player flow a
+- _[Visitors allowed]_ **Recovering a claim from purgatory**, giving the returning-player flow a
   shape and a reason to involve others.
-- **Unlocking advanced jobs**, gating the deep end of progression behind
+- _[Co-presence]_ **Unlocking advanced jobs**, gating the deep end of progression behind
   co-operation.
 
 ### Constraints any ritual design inherits
@@ -415,9 +438,30 @@ in a solo fight is 3 units, and party size scales with real players plus their
 pets. Combat maths should assume 1–3 friendly units solo, and be checked against
 larger co-op groups before anything depends on a fixed count.
 
+**Leaving an encounter.** An Encounter stays where it was seeded for its whole
+life. A character leaves it only by **Flee** or by the Encounter ending.
+Walking away in real life does not take a character out of a fight.
+
+- **Flee** is an action the player chooses. It can be used **at any moment, on
+  any turn**, not only on the character's own turn, and it never fails: a
+  failed Flee in a real-world game would trap someone who needs to leave. It
+  takes effect when the action resolving now finishes (gauges are paused then,
+  so turn order stays deterministic). The character forfeits that Encounter's
+  XP and loot and cannot rejoin it.
+- A player is **Absent** after 30 s with no heartbeat (app closed, no signal).
+  Their character stays in the Encounter. The other players have 30 s to vote
+  on what it does: **AI Driver** (the game plays it until the Encounter ends or
+  the player returns), **Flee**, or **Defend and wait**.
+- No votes: the AI Driver takes over. A tie goes to the safer option, in the
+  order Flee, then Defend and wait, then AI Driver.
+- With nobody to vote (a solo Encounter, or every player Absent), the character
+  takes Defend and wait. An unwatched AI must not lose a solo fight for an
+  absent player.
+- A returning player takes control back.
+
 ## Jobs: a data pipeline, not a pile of classes
 
-Jobs get a **full pipeline framework**, not hand-written Kotlin per job. This is
+Jobs get a **full pipeline framework**, not hand-written code per job. This is
 the single highest-leverage decision for a game vibe-coded by its players: if
 adding a job means editing engine code, every new job is a merge conflict and a
 regression risk. If adding a job means adding a data file, players can add jobs
@@ -429,7 +473,7 @@ The framework needs, in this order:
    granted, prerequisites, what unlocks it, what it unlocks. Committed as a
    schema file, not just implied by the loader.
 2. **Content as data.** One file per job under a content directory, validated
-   against the schema. Never Kotlin.
+   against the schema. Never code.
 3. **Validation in CI.** Malformed or contradictory job data fails the PR check
    rather than the player's phone. Include cycle detection on the unlock graph.
 4. **A loader** that turns validated data into runtime objects, with defined
@@ -484,7 +528,7 @@ These apply to every Claude run, whoever dispatched it:
   is written there first.
 - Never require a player to walk somewhere to keep playing, and never route
   them onto roads, railways, water, or private property.
-- Content (jobs, monsters, abilities) is data validated in CI, not Kotlin.
+- Content (jobs, monsters, abilities) is data validated in CI, not code.
 - Keep OpenStreetMap attribution visible wherever tiles are drawn.
 - No prefetch, bulk download, or offline-area feature while tiles still come
   from the OSM Foundation's servers — their policy forbids it.
@@ -516,12 +560,9 @@ low-cost teleportation between allowed regions, party
 of player + optional pet + optional solo-only NPC companion, elevation from real
 terrain where available, ATB turn order, jobs as a data pipeline. Still open:
 
-- **Does the leash follow the player mid-fight?** If someone walks away during
-  combat, is the avatar dragged along, or is the radius anchored where the
-  encounter started? Biggest remaining combat question. This stays genuinely
-  open; the MVP anchors the board where the encounter was seeded and does not
-  move it, which is the conservative reading, but the question is not settled by
-  that choice.
+- **Does the leash follow the player mid-fight?** *Settled: no. An Encounter
+  stays where it was seeded, and a character leaves only by Flee or by the
+  Encounter ending (see Leaving an encounter).*
 - **How big is the radius?** It, not the cell size, decides whether a fight is a
   readable tactical board or an open field. 10–15 m gives an FFT-sized map.
   *MVP default, revisit: 12 m, giving a 469-cell board (`3n(n+1)+1` at n = 12).
@@ -554,12 +595,12 @@ terrain where available, ATB turn order, jobs as a data pipeline. Still open:
 - **Does one claim at a time count guild claims?** Whether holding a personal
   residence prevents staking for a guild, or the two are independent, is
   undefined.
-- **Do rituals require physical co-presence?** The gating question for the
-  social pillar — see Rituals. Also: how many participants, does a ritual take
-  real time, and what happens when someone drops out partway?
-- **Does teleporting to another player's radius need their consent?** Arriving
-  uninvited at someone's live location is a social and a safety question, not
-  just a mechanical one.
+- **Do rituals require physical co-presence?** *Settled: some do (see
+  Rituals: Co-presence), and so do participant drop-outs and duration. Still
+  open: how many participants each Ritual needs.*
+- **Does teleporting to another player's radius need their consent?**
+  *Settled: yes. It is the Teleportation Ritual, and the Host accepts each one
+  live (see Travel).*
 - **Territories make GPS spoofing profitable.** Claimable land plus travel to it
   is a standing incentive to fake a location. Cheap teleportation between known
   regions actually reduces the payoff — there is less to gain by faking a
