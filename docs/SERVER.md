@@ -56,7 +56,7 @@ Android app ─HTTPS─▶ Cloudflare (proxy, Full strict) ─HTTPS─▶ Traefi
 |---|---|
 | `Cargo.toml` | workspace: `rules`, `api`. Exact versions pinned, `Cargo.lock` committed. |
 | `rust-toolchain.toml` | pinned stable toolchain + the two musl targets |
-| `rules/` | pure, no I/O: `content` (load + validate `content/`), `character` (`CharacterState`, factory, `save_codec` + migrations), later `combat`. Unit-tested. |
+| `rules/` | pure, no I/O: `content` (load + validate `content/`), `character` (`CharacterState`, factory, `save_codec` + migrations), `combat` (ATB engine, battle builder, `SimpleAi`, `java.util.Random`-exact dice). Unit-tested. |
 | `api/src/main.rs` | `Config` from env, pool + `sqlx::migrate!`, content load, router, minute-tick purge task |
 | `api/src/config.rs` | §8. Fails fast on empty `ESPER_RP_ORIGINS`. |
 | `api/src/auth/{passkeys,sessions}.rs` | webauthn-rs, ceremony store, the four ceremony routes; session issue / validate / slide / delete, bearer extractor |
@@ -473,6 +473,10 @@ is a recovery-code sign-in. `minSdk` stays 26.
   Kotlin `SaveCodec`, one per schema version) decode, migrate and re-encode to
   the expected JSON. The Kotlin `engine` job round-trips the same files, so the
   two codecs cannot drift silently.
+- `combat`: **recordings** in `content/fixtures/combat/` (seeded fights written
+  by the Kotlin `CombatRecordingsTest`: solo, with a pet, with an NPC companion)
+  replay turn for turn: actor, every gauge, `SimpleAi`'s choice, events, result.
+  The Kotlin `engine` job checks the engine still plays the same files.
 - `character_rules`: POST rejects non-starting job, blank name, 25-char name; PUT
   rejects renamed character, unknown job/ability id, wrong schema version, lower
   level; accepts a valid round-trip.
