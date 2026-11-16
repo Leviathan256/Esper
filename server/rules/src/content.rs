@@ -347,4 +347,4 @@ pub fn find_job_graph_cycle(jobs: &[Job]) -> Option<Vec<String>> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
