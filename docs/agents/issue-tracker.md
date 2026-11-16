@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues and specs for this repo live as GitHub issues. Use the `gh` CLI or the matching GitHub MCP tool (`mcp__github__*`), whichever works in the session. The commands below are written for `gh`; labels and native issue dependencies need `gh`.
 
 ## Conventions
 
