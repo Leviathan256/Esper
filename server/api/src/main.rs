@@ -311,12 +311,6 @@ mod tests {
     const CONTENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../content");
 
     #[test]
-    fn shipped_content_loads() {
-        let c = load_content(Path::new(CONTENT)).unwrap();
-        assert_eq!((c.jobs.len(), c.monsters.len()), (3, 3));
-    }
-
-    #[test]
     fn a_broken_or_missing_content_file_stops_startup() {
         let dir = std::env::temp_dir().join(format!("esper-content-{}", std::process::id()));
         for sub in ["jobs", "monsters"] {

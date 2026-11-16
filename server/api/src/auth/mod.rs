@@ -29,7 +29,12 @@ impl KeyExtractor for ClientIp {
                 .map(|c| c.0.ip())
         };
         // Only reachable without a peer address, i.e. in tests that call the router directly.
-        Ok(header.or_else(peer).unwrap_or(IpAddr::from([0, 0, 0, 0])))
+        let ip = header.or_else(peer).unwrap_or(IpAddr::from([0, 0, 0, 0]));
+        // One IPv6 client holds a whole /64, so a per-address key is no limit.
+        Ok(match ip {
+            IpAddr::V6(v6) => IpAddr::V6((u128::from(v6) & (!0u128 << 64)).into()),
+            v4 => v4,
+        })
     }
 }
 
@@ -56,7 +61,11 @@ mod tests {
         );
         assert_eq!(
             key(req(Some("2001:db8::1"))),
-            "2001:db8::1".parse::<IpAddr>().unwrap()
+            "2001:db8::".parse::<IpAddr>().unwrap()
+        );
+        assert_eq!(
+            key(req(Some("2001:db8::ffff:1"))),
+            key(req(Some("2001:db8::2")))
         );
         assert_eq!(key(req(None)), IpAddr::from([10, 0, 0, 7]));
         assert_eq!(key(req(Some("not an ip"))), IpAddr::from([10, 0, 0, 7]));
