@@ -19,7 +19,7 @@ Everything under "Later steps" is design only.
 |---|---|---|
 | Server stack | Rust, **axum** on **tokio**, **sqlx** (Postgres, compile-checked queries), `tower` middleware | One static binary, no JVM. sqlx keeps plain SQL, as the Kotlin server's plain JDBC did. |
 | Rules home | Game rules live in Rust (`server/rules`). The Kotlin `engine/` is **frozen**: no new rules. Deleted when server combat ships and the app stops running combat locally. | The world is shared and online-only, so the server is the authority. A cross-language build (UniFFI) costs more than a frozen interim copy. ADR-0002. |
-| Passkeys | **webauthn-rs**, features `conditional-ui` (discoverable login) | `append_allowed_origin` is documented for Android's app origins; `android:apk-key-hash:…` parses as a URL. |
+| Passkeys | **webauthn-rs** 0.6, features `conditional-ui` (discoverable login) | `append_allowed_origin` is documented for Android's app origins; `android:apk-key-hash:…` parses as a URL. 0.6 is pure Rust (no OpenSSL), so the musl cross build needs no C toolchain. |
 | Packaging | `x86_64`/`aarch64-unknown-linux-musl` static binary in a distroless `static` image, pushed to **GHCR** for `linux/amd64` and `linux/arm64` | A few MB, no runtime to patch, runs on any conformant cluster. |
 | App HTTP | `HttpURLConnection`, the `GitHubClient` house pattern (unchanged) | The API does not change, so the app does not change. |
 | App WebSocket | **None yet.** Position goes by `POST /v1/location`. | The server exposes an authenticated `/v1/ws` skeleton so a later step attaches without an API change. |
@@ -163,6 +163,7 @@ Every non-2xx response has this body:
 | 400 | `invalid_fix` | lat/lon/accuracy out of range or NaN |
 | 401 | `unauthorized` | missing, unknown or expired token. **App clears its token and returns to sign-in on any 401.** |
 | 404 | `no_character` | `GET /v1/character` before creation |
+| 404 | `not_found` | `/.well-known/assetlinks.json` when `ESPER_ASSETLINKS_FILE` cannot be read |
 | 409 | `character_exists` | second `POST /v1/character` |
 | 429 | `rate_limited` | ceremony routes, 20/min per client IP |
 | 503 | `unavailable` | `/healthz` DB check failed |
@@ -270,8 +271,9 @@ removed on use; swept by the minute tick.
   and is never logged.
 - `expires_at = now + 90 days`, sliding: on validate, if `last_used_at` is older
   than 1 day, set `last_used_at = now`, `expires_at = now + 90 days`.
-- Logout deletes the row. Expired rows deleted by the minute tick. No rotation
-  yet (`shortcut:` comment).
+- Logout deletes the row. Expired rows deleted by the minute tick. An account
+  keeps only its 10 newest sessions, so scripted sign-ins cannot fill the disk.
+  No rotation yet (`shortcut:` comment).
 
 ### Rate limit
 

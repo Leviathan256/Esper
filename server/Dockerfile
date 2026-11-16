@@ -4,8 +4,8 @@
 # The build stage runs once on the build host and cross-compiles both static
 # musl binaries (linked by rust-lld, see .cargo/config.toml), so arm64 needs no
 # QEMU. Each platform's final image then copies its own binary.
-# shortcut: works while every crate is pure Rust; a crate that compiles C (e.g.
-# openssl under webauthn-rs) needs a musl C cross compiler added to this stage.
+# shortcut: works while every crate is pure Rust (webauthn-rs 0.6 dropped
+# OpenSSL); a crate that compiles C needs a musl C cross compiler added here.
 FROM --platform=$BUILDPLATFORM rust:1.100.0-slim-trixie AS build
 RUN rustup target add x86_64-unknown-linux-musl aarch64-unknown-linux-musl
 WORKDIR /src
