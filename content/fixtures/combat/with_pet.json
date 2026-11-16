@@ -1,0 +1,983 @@
+{
+    "seed": 11,
+    "encounter": {
+        "monsterIds": [
+            "goblin",
+            "goblin",
+            "slime"
+        ],
+        "boardRadiusCells": 12
+    },
+    "character": {
+        "schemaVersion": 1,
+        "name": "Ash",
+        "baseScores": {
+            "str": 14,
+            "dex": 12,
+            "con": 13,
+            "int": 10,
+            "wis": 10,
+            "cha": 10
+        },
+        "currentJobId": "squire",
+        "level": 1,
+        "xp": 0,
+        "jobPoints": {},
+        "unlockedJobIds": [],
+        "learnedAbilityIds": [],
+        "bestiary": {}
+    },
+    "allies": [
+        {
+            "id": "pet",
+            "displayName": "Rex",
+            "playerControlled": true,
+            "sourceId": "wolf",
+            "stats": {
+                "maxHp": 9,
+                "armorClass": 12,
+                "attackBonus": 3,
+                "damage": "1d6+1",
+                "speed": 14,
+                "moveRangeCells": 5,
+                "attackRangeCells": 1
+            },
+            "currentHp": 9,
+            "position": {
+                "q": 1,
+                "r": 0
+            },
+            "atbGauge": 0.0
+        }
+    ],
+    "units": [
+        {
+            "id": "player",
+            "displayName": "Ash",
+            "playerControlled": true,
+            "sourceId": "squire",
+            "stats": {
+                "maxHp": 11,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d8+2",
+                "speed": 8,
+                "moveRangeCells": 4,
+                "attackRangeCells": 1
+            },
+            "currentHp": 11,
+            "position": {
+                "q": 0,
+                "r": 0
+            },
+            "atbGauge": 0.0
+        },
+        {
+            "id": "goblin#0",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 7,
+            "position": {
+                "q": -4,
+                "r": 0
+            },
+            "atbGauge": 0.0
+        },
+        {
+            "id": "goblin#1",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 7,
+            "position": {
+                "q": -2,
+                "r": 4
+            },
+            "atbGauge": 0.0
+        },
+        {
+            "id": "slime#2",
+            "displayName": "Slime",
+            "playerControlled": false,
+            "sourceId": "slime",
+            "stats": {
+                "maxHp": 4,
+                "armorClass": 8,
+                "attackBonus": 1,
+                "damage": "1d4",
+                "speed": 3,
+                "moveRangeCells": 1,
+                "attackRangeCells": 1
+            },
+            "currentHp": 4,
+            "position": {
+                "q": 2,
+                "r": 2
+            },
+            "atbGauge": 0.0
+        },
+        {
+            "id": "pet",
+            "displayName": "Rex",
+            "playerControlled": true,
+            "sourceId": "wolf",
+            "stats": {
+                "maxHp": 9,
+                "armorClass": 12,
+                "attackBonus": 3,
+                "damage": "1d6+1",
+                "speed": 14,
+                "moveRangeCells": 5,
+                "attackRangeCells": 1
+            },
+            "currentHp": 9,
+            "position": {
+                "q": 1,
+                "r": 0
+            },
+            "atbGauge": 0.0
+        }
+    ],
+    "turns": [
+        {
+            "actor": "pet",
+            "gauges": {
+                "player": 64.0,
+                "goblin#0": 56.0,
+                "goblin#1": 56.0,
+                "slime#2": 24.0,
+                "pet": 112.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": 99,
+                            "r": 0
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "ActionRejected",
+                            "unitId": "pet",
+                            "reason": "illegal move to HexCoord(q=99, r=0)"
+                        }
+                    ]
+                },
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "nobody"
+                    },
+                    "events": [
+                        {
+                            "type": "ActionRejected",
+                            "unitId": "pet",
+                            "reason": "no valid target nobody"
+                        }
+                    ]
+                },
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#0"
+                    },
+                    "events": [
+                        {
+                            "type": "ActionRejected",
+                            "unitId": "pet",
+                            "reason": "target goblin#0 out of range"
+                        }
+                    ]
+                },
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": -4,
+                            "r": 1
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "pet",
+                            "from": {
+                                "q": 1,
+                                "r": 0
+                            },
+                            "to": {
+                                "q": -4,
+                                "r": 1
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 104.0,
+                "goblin#0": 91.0,
+                "goblin#1": 91.0,
+                "slime#2": 39.0,
+                "pet": 82.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": -3,
+                            "r": -1
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "player",
+                            "from": {
+                                "q": 0,
+                                "r": 0
+                            },
+                            "to": {
+                                "q": -3,
+                                "r": -1
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "goblin#0",
+            "gauges": {
+                "player": 20.0,
+                "goblin#0": 105.0,
+                "goblin#1": 105.0,
+                "slime#2": 45.0,
+                "pet": 110.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "pet"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "goblin#0",
+                            "targetId": "pet",
+                            "roll": {
+                                "d20": 19,
+                                "total": 23,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 5,
+                            "targetHpAfter": 4
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "goblin#1",
+            "gauges": {
+                "player": 20.0,
+                "goblin#0": 5.0,
+                "goblin#1": 105.0,
+                "slime#2": 45.0,
+                "pet": 110.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": -4,
+                            "r": 3
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "goblin#1",
+                            "from": {
+                                "q": -2,
+                                "r": 4
+                            },
+                            "to": {
+                                "q": -4,
+                                "r": 3
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "pet",
+            "gauges": {
+                "player": 20.0,
+                "goblin#0": 5.0,
+                "goblin#1": 5.0,
+                "slime#2": 45.0,
+                "pet": 110.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#0"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "pet",
+                            "targetId": "goblin#0",
+                            "roll": {
+                                "d20": 12,
+                                "total": 15,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 5,
+                            "targetHpAfter": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "pet",
+            "gauges": {
+                "player": 76.0,
+                "goblin#0": 54.0,
+                "goblin#1": 54.0,
+                "slime#2": 66.0,
+                "pet": 108.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#0"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "pet",
+                            "targetId": "goblin#0",
+                            "roll": {
+                                "d20": 14,
+                                "total": 17,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 5,
+                            "targetHpAfter": 0
+                        },
+                        {
+                            "type": "Defeated",
+                            "unitId": "goblin#0"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 100.0,
+                "goblin#0": 54.0,
+                "goblin#1": 75.0,
+                "slime#2": 75.0,
+                "pet": 50.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": -5,
+                            "r": 3
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "player",
+                            "from": {
+                                "q": -3,
+                                "r": -1
+                            },
+                            "to": {
+                                "q": -5,
+                                "r": 3
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "goblin#1",
+            "gauges": {
+                "player": 32.0,
+                "goblin#0": 54.0,
+                "goblin#1": 103.0,
+                "slime#2": 87.0,
+                "pet": 106.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "player"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "goblin#1",
+                            "targetId": "player",
+                            "roll": {
+                                "d20": 1,
+                                "total": 5,
+                                "hit": false,
+                                "critical": false,
+                                "fumble": true
+                            },
+                            "damage": 0,
+                            "targetHpAfter": 11
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "pet",
+            "gauges": {
+                "player": 32.0,
+                "goblin#0": 54.0,
+                "goblin#1": 3.0,
+                "slime#2": 87.0,
+                "pet": 106.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": -5,
+                            "r": 4
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "pet",
+                            "from": {
+                                "q": -4,
+                                "r": 1
+                            },
+                            "to": {
+                                "q": -5,
+                                "r": 4
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "slime#2",
+            "gauges": {
+                "player": 72.0,
+                "goblin#0": 54.0,
+                "goblin#1": 38.0,
+                "slime#2": 102.0,
+                "pet": 76.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": 1,
+                            "r": 2
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "slime#2",
+                            "from": {
+                                "q": 2,
+                                "r": 2
+                            },
+                            "to": {
+                                "q": 1,
+                                "r": 2
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "pet",
+            "gauges": {
+                "player": 88.0,
+                "goblin#0": 54.0,
+                "goblin#1": 52.0,
+                "slime#2": 8.0,
+                "pet": 104.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#1"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "pet",
+                            "targetId": "goblin#1",
+                            "roll": {
+                                "d20": 14,
+                                "total": 17,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 5,
+                            "targetHpAfter": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 104.0,
+                "goblin#0": 54.0,
+                "goblin#1": 66.0,
+                "slime#2": 14.0,
+                "pet": 32.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#1"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "player",
+                            "targetId": "goblin#1",
+                            "roll": {
+                                "d20": 8,
+                                "total": 12,
+                                "hit": false,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 0,
+                            "targetHpAfter": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "goblin#1",
+            "gauges": {
+                "player": 44.0,
+                "goblin#0": 54.0,
+                "goblin#1": 101.0,
+                "slime#2": 29.0,
+                "pet": 102.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "pet"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "goblin#1",
+                            "targetId": "pet",
+                            "roll": {
+                                "d20": 15,
+                                "total": 19,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 3,
+                            "targetHpAfter": 1
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "pet",
+            "gauges": {
+                "player": 44.0,
+                "goblin#0": 54.0,
+                "goblin#1": 1.0,
+                "slime#2": 29.0,
+                "pet": 102.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#1"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "pet",
+                            "targetId": "goblin#1",
+                            "roll": {
+                                "d20": 8,
+                                "total": 11,
+                                "hit": false,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 0,
+                            "targetHpAfter": 2
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "pet",
+            "gauges": {
+                "player": 100.0,
+                "goblin#0": 54.0,
+                "goblin#1": 50.0,
+                "slime#2": 50.0,
+                "pet": 100.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "goblin#1"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "pet",
+                            "targetId": "goblin#1",
+                            "roll": {
+                                "d20": 10,
+                                "total": 13,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 6,
+                            "targetHpAfter": 0
+                        },
+                        {
+                            "type": "Defeated",
+                            "unitId": "goblin#1"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 100.0,
+                "goblin#0": 54.0,
+                "goblin#1": 50.0,
+                "slime#2": 50.0,
+                "pet": 0.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": -1,
+                            "r": 2
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "player",
+                            "from": {
+                                "q": -5,
+                                "r": 3
+                            },
+                            "to": {
+                                "q": -1,
+                                "r": 2
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "pet",
+            "gauges": {
+                "player": 64.0,
+                "goblin#0": 54.0,
+                "goblin#1": 50.0,
+                "slime#2": 74.0,
+                "pet": 112.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": 0,
+                            "r": 2
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "pet",
+                            "from": {
+                                "q": -5,
+                                "r": 4
+                            },
+                            "to": {
+                                "q": 0,
+                                "r": 2
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "player",
+            "gauges": {
+                "player": 104.0,
+                "goblin#0": 54.0,
+                "goblin#1": 50.0,
+                "slime#2": 89.0,
+                "pet": 82.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Move",
+                        "to": {
+                            "q": 0,
+                            "r": 3
+                        }
+                    },
+                    "events": [
+                        {
+                            "type": "Moved",
+                            "unitId": "player",
+                            "from": {
+                                "q": -1,
+                                "r": 2
+                            },
+                            "to": {
+                                "q": 0,
+                                "r": 3
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "actor": "pet",
+            "gauges": {
+                "player": 20.0,
+                "goblin#0": 54.0,
+                "goblin#1": 50.0,
+                "slime#2": 95.0,
+                "pet": 110.0
+            },
+            "actions": [
+                {
+                    "action": {
+                        "type": "Attack",
+                        "targetId": "slime#2"
+                    },
+                    "events": [
+                        {
+                            "type": "Attacked",
+                            "attackerId": "pet",
+                            "targetId": "slime#2",
+                            "roll": {
+                                "d20": 19,
+                                "total": 22,
+                                "hit": true,
+                                "critical": false,
+                                "fumble": false
+                            },
+                            "damage": 4,
+                            "targetHpAfter": 0
+                        },
+                        {
+                            "type": "Defeated",
+                            "unitId": "slime#2"
+                        },
+                        {
+                            "type": "BattleEnded",
+                            "result": "VICTORY"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "result": "VICTORY",
+    "finalUnits": [
+        {
+            "id": "player",
+            "displayName": "Ash",
+            "playerControlled": true,
+            "sourceId": "squire",
+            "stats": {
+                "maxHp": 11,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d8+2",
+                "speed": 8,
+                "moveRangeCells": 4,
+                "attackRangeCells": 1
+            },
+            "currentHp": 11,
+            "position": {
+                "q": 0,
+                "r": 3
+            },
+            "atbGauge": 20.0
+        },
+        {
+            "id": "goblin#0",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 0,
+            "position": {
+                "q": -4,
+                "r": 0
+            },
+            "atbGauge": 54.0
+        },
+        {
+            "id": "goblin#1",
+            "displayName": "Goblin",
+            "playerControlled": false,
+            "sourceId": "goblin",
+            "stats": {
+                "maxHp": 7,
+                "armorClass": 13,
+                "attackBonus": 4,
+                "damage": "1d6+2",
+                "speed": 7,
+                "moveRangeCells": 3,
+                "attackRangeCells": 1
+            },
+            "currentHp": 0,
+            "position": {
+                "q": -4,
+                "r": 3
+            },
+            "atbGauge": 50.0
+        },
+        {
+            "id": "slime#2",
+            "displayName": "Slime",
+            "playerControlled": false,
+            "sourceId": "slime",
+            "stats": {
+                "maxHp": 4,
+                "armorClass": 8,
+                "attackBonus": 1,
+                "damage": "1d4",
+                "speed": 3,
+                "moveRangeCells": 1,
+                "attackRangeCells": 1
+            },
+            "currentHp": 0,
+            "position": {
+                "q": 1,
+                "r": 2
+            },
+            "atbGauge": 95.0
+        },
+        {
+            "id": "pet",
+            "displayName": "Rex",
+            "playerControlled": true,
+            "sourceId": "wolf",
+            "stats": {
+                "maxHp": 9,
+                "armorClass": 12,
+                "attackBonus": 3,
+                "damage": "1d6+1",
+                "speed": 14,
+                "moveRangeCells": 5,
+                "attackRangeCells": 1
+            },
+            "currentHp": 1,
+            "position": {
+                "q": 0,
+                "r": 2
+            },
+            "atbGauge": 10.0
+        }
+    ]
+}
