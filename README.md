@@ -153,19 +153,21 @@ up readable in the Actions log.
 
 ## Server
 
-Esper is online-only. A Ktor server (`:server`, which runs the pure-JVM
-`:engine`) holds accounts, passkeys, characters and the latest player position.
-Players sign in with a passkey (Android 14+ and a passkey provider); the
-relying-party ID is `leviathan256.github.io`. The contract is
-`docs/SERVER.md`; what location data is sent and kept is in
-`docs/GAME_DESIGN.md` ("Why the app asks for location").
+Esper is online-only. The server holds accounts, passkeys, characters and the
+latest player position, and is the home of the game rules. It is being ported
+from Kotlin/Ktor to Rust (axum); the API does not change. Players sign in with
+a passkey (Android 14+ and a passkey provider); the relying-party ID is
+`esper.media`. The contract is `docs/SERVER.md`; what location data is sent and
+kept is in `docs/GAME_DESIGN.md` ("Why the app asks for location"). Why it is
+built this way: `docs/adr/`.
 
-Everything is free: an Oracle Cloud Always Free ARM VM, Postgres and Caddy on it
-(Let's Encrypt TLS on a DuckDNS or sslip.io name), and GitHub Actions. `deploy/`
-holds the systemd unit, Caddyfile, env example and `setup.sh`; `pages/` holds the
-`assetlinks.json` template and `fingerprint.sh`. `deploy-server.yml` tests,
-builds and rsyncs the server on pushes to `main`, and only builds and tests until
-the deploy secrets exist. It never touches the `nightly` release.
+It runs on single-node k3s on Levi's own server, behind Cloudflare at
+`esper.media`, with Postgres in the cluster. `deploy/k8s/` holds the Kustomize
+manifests and `deploy/host-setup.sh` bootstraps the host; `pages/` holds the
+`assetlinks.json` template and `fingerprint.sh`. `deploy-server.yml` tests the
+server, pushes a multi-arch image to GHCR and applies the manifests over
+Tailscale on pushes to `main`, and only tests and builds until the deploy
+secrets exist. It never touches the `nightly` release.
 
 The APK reads its default server address from the `ESPER_SERVER_URL` repository
 variable at build time (blank is fine; it can be set in Settings). One-time
