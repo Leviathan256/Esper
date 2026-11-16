@@ -1,0 +1,26 @@
+# Standard Ingress, no Traefik CRDs (ADR-0001). No ingressClassName: k3s marks
+# its bundled Traefik as the default class. Cloudflare (Full strict) connects
+# on 443 and checks the Let's Encrypt certificate cert-manager puts in
+# esper-media-tls.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: esper-server
+  namespace: esper
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-dns
+spec:
+  tls:
+    - hosts: [esper.media]
+      secretName: esper-media-tls
+  rules:
+    - host: esper.media
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: esper-server
+                port:
+                  name: http

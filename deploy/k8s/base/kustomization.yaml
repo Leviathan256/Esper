@@ -1,0 +1,13 @@
+# Esper on any conformant cluster (docs/SERVER.md §9, ADR-0001). Every
+# namespaced object names `esper` itself: kustomize's namespace transformer
+# would also stamp the cluster-scoped ClusterIssuer, which it does not know.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - server.yaml
+  - ingress.yaml
+  - assetlinks.yaml
+  - backup.yaml
+  - cert-issuer.yaml

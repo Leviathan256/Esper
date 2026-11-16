@@ -381,8 +381,13 @@ issuer and the firewall are the only Cloudflare-specific parts.
 | `overlays/prod/kustomization.yaml` | image tag, host name |
 
 Secrets are **never in git**. `deploy/host-setup.sh` creates them once with
-`kubectl create secret`: `esper-server` (`ESPER_DB_URL`, `ESPER_RP_ORIGINS`),
-`postgres` (password), `cloudflare-api-token`.
+`kubectl create secret generic`, under the names and keys the manifests read:
+
+| Secret | Namespace | Keys |
+|---|---|---|
+| `esper-server` | `esper` | `ESPER_DB_URL`, `ESPER_RP_ORIGINS` |
+| `postgres` | `esper` | `password` (the one in `ESPER_DB_URL`) |
+| `cloudflare-api-token` | `cert-manager` (a `ClusterIssuer` reads its Secret there) | `api-token` |
 
 **`deploy/host-setup.sh`** (idempotent, run once with `sudo`): install k3s
 (pinned version), install cert-manager (pinned manifest), apply the firewall and

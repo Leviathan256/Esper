@@ -1,0 +1,63 @@
+# Postgres in-cluster (ADR-0001). The major is pinned: upgrade by dump, bump,
+# restore, never by tag drift. The `postgres` Secret (key `password`) is created
+# on the host, never in git (docs/SERVER.md §9).
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: esper
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: esper
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: postgres
+          image: postgres:18
+          env:
+            - name: POSTGRES_USER
+              value: esper
+            - name: POSTGRES_DB
+              value: esper
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres
+                  key: password
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "esper", "-d", "esper"]
+            periodSeconds: 10
+          # postgres:18 keeps PGDATA in /var/lib/postgresql/18/docker, under this mount.
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
