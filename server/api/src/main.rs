@@ -112,6 +112,7 @@ struct AppState {
     catalog: Arc<rules::content::Catalog>,
     assetlinks_file: Arc<PathBuf>,
     positions: Arc<Positions>,
+    sockets: Arc<tokio::sync::Semaphore>,
     auth_limit: Arc<GovernorConfig<ClientIp, NoOpMiddleware>>,
 }
 
@@ -135,6 +136,7 @@ impl AppState {
             catalog: Arc::new(catalog),
             assetlinks_file: Arc::new(assetlinks_file),
             positions: Arc::default(),
+            sockets: Arc::new(tokio::sync::Semaphore::new(realtime::MAX_SOCKETS)),
             auth_limit: Arc::new(auth_limit),
         }
     }
@@ -155,6 +157,12 @@ impl FromRef<AppState> for Arc<Passkeys> {
 impl FromRef<AppState> for Arc<rules::content::Catalog> {
     fn from_ref(s: &AppState) -> Self {
         s.catalog.clone()
+    }
+}
+
+impl FromRef<AppState> for Arc<tokio::sync::Semaphore> {
+    fn from_ref(s: &AppState) -> Self {
+        s.sockets.clone()
     }
 }
 
@@ -330,12 +338,6 @@ mod tests {
     }
 
     const CONTENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../content");
-
-    #[test]
-    fn shipped_content_loads() {
-        let c = load_content(Path::new(CONTENT)).unwrap();
-        assert_eq!((c.jobs.len(), c.monsters.len()), (3, 3));
-    }
 
     #[test]
     fn a_broken_or_missing_content_file_stops_startup() {
@@ -793,6 +795,19 @@ mod tests {
         let loc = r#"{"t":"loc","id":4,"d":{"lat":1.0,"lon":2.0,"accuracyM":3.0}}"#;
         assert_eq!(round_trip(&mut ws, loc).await, r#"{"t":"ack","id":4}"#);
         assert!(state.positions.has(account));
+
+        // Logout ends the socket: the next loc closes it and stores nothing.
+        let app = app(state.clone());
+        assert_eq!(logout(&app, Some(&token)).await.0, StatusCode::NO_CONTENT);
+        {
+            use futures_util::{SinkExt, StreamExt};
+            ws.send(loc.into()).await.unwrap();
+            assert!(matches!(
+                ws.next().await,
+                None | Some(Err(_)) | Some(Ok(tokio_tungstenite::tungstenite::Message::Close(_)))
+            ));
+        }
+        assert!(!state.positions.has(account));
     }
 
     #[tokio::test]

@@ -109,6 +109,13 @@ where
     }
 }
 
+impl Session {
+    /// False once this session is logged out or expired, or the database is unreachable.
+    pub async fn is_live(&self, pool: &PgPool) -> bool {
+        matches!(validate(pool, &self.token_hash).await, Ok(Some(_)))
+    }
+}
+
 /// `POST /v1/auth/logout`: deletes this session only, and the account's position.
 pub async fn logout(
     State(pool): State<PgPool>,

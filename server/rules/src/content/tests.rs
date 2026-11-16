@@ -214,7 +214,9 @@ fn bad_dice_notation_is_rejected() {
         }),
         "damage"
     ));
-    for bad in ["1 d6", "1d", "1d6+", "1d6d", "-1d6", "1d6 2", "+", "abc"] {
+    for bad in [
+        "1 d6", "1d", "1d6+", "1d6d", "-1d6", "1d6 2", "+", "abc", "1d0", "2d0+1",
+    ] {
         assert_eq!(dice_count(bad), None, "{bad}");
     }
     for (ok, n) in [
