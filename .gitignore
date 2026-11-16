@@ -44,3 +44,6 @@ dist/
 *.jks
 *.keystore
 server.env
+
+# Rust build output (server/ workspace).
+target/
