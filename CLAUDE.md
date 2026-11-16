@@ -6,7 +6,7 @@ Guidance for AI coding agents in this repo. See `README.md` for the build and re
 
 ### Issue tracker
 
-GitHub Issues on `Leviathan256/esper` via `gh`. See `docs/agents/issue-tracker.md`.
+GitHub Issues on `Leviathan256/esper` via `gh` or the GitHub MCP tools. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
