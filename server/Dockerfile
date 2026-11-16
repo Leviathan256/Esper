@@ -26,5 +26,9 @@ RUN cargo build --release --locked \
 FROM gcr.io/distroless/static-debian13:nonroot
 ARG TARGETARCH
 COPY --from=build /out/${TARGETARCH}/esper-server /esper-server
+# Content is baked in and validated at startup; invalid content stops the server.
+COPY content/jobs /content/jobs
+COPY content/monsters /content/monsters
+ENV ESPER_CONTENT_DIR=/content
 EXPOSE 8080
 ENTRYPOINT ["/esper-server"]

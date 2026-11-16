@@ -116,7 +116,9 @@ jobs:
 
   # Rust server (docs/SERVER.md §11): format, lint and test against Postgres 18,
   # then build the multi-arch image and smoke-test the amd64 one against the
-  # same database, up and down.
+  # same database, up and down. `cargo test` loads content/ through the Rust
+  # loader, so a content change must pass both this job and the engine job's
+  # ShippedContentTest while the frozen Kotlin engine exists.
   server:
     runs-on: ubuntu-latest
     timeout-minutes: 30

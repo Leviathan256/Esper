@@ -75,6 +75,10 @@ true }`. A field this doc does not yet document, added by a future
 read fresh from the APK every launch — there is no save-style migration chain
 for them (that exists only for `CharacterState`).
 
+The Rust server (`server/rules/src/content.rs`) applies the same rules but
+**rejects** unknown keys, and refuses to start on invalid content: add a field
+to the Rust types before shipping it in a file. CI runs both loaders.
+
 ## Shipped monsters
 
 | id | notes |

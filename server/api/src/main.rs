@@ -1,6 +1,7 @@
-//! Esper server (docs/SERVER.md): migrates the database on start, then serves the API.
+//! Esper server (docs/SERVER.md): loads content and migrates the database on
+//! start, then serves the API. Invalid content stops startup (§8).
 
-use std::time::Duration;
+use std::{collections::BTreeMap, path::Path, time::Duration};
 
 use axum::{
     Json, Router,
@@ -23,6 +24,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
     let bind = std::env::var("ESPER_BIND").unwrap_or_else(|_| "0.0.0.0:8080".into());
     let db_url = std::env::var("ESPER_DB_URL").map_err(|_| "ESPER_DB_URL is required")?;
+    let content_dir = std::env::var("ESPER_CONTENT_DIR").unwrap_or_else(|_| "content".into());
+
+    let content = load_content(Path::new(&content_dir))?;
+    tracing::info!(
+        "content: {} jobs, {} monsters",
+        content.jobs.len(),
+        content.monsters.len()
+    );
 
     let pool = pool_options().connect(&db_url).await?;
     MIGRATOR.run(&pool).await?;
@@ -33,6 +42,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_graceful_shutdown(shutdown())
         .await?;
     Ok(())
+}
+
+fn load_content(dir: &Path) -> Result<rules::content::Catalog, Box<dyn std::error::Error>> {
+    let read = |sub: &str| -> Result<BTreeMap<String, String>, Box<dyn std::error::Error>> {
+        let dir = dir.join(sub);
+        let mut texts = BTreeMap::new();
+        for entry in std::fs::read_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))? {
+            let path = entry?.path();
+            if path.extension().is_some_and(|x| x == "json") {
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned();
+                texts.insert(name, std::fs::read_to_string(&path)?);
+            }
+        }
+        if texts.is_empty() {
+            return Err(format!("no *.json files in {}", dir.display()).into());
+        }
+        Ok(texts)
+    };
+    Ok(rules::content::load(&read("jobs")?, &read("monsters")?)?)
 }
 
 // A probe must not hang for sqlx's 30 s default while the database is down.
@@ -84,6 +116,31 @@ mod tests {
         let status = res.status();
         let body = to_bytes(res.into_body(), 64 * 1024).await.unwrap();
         (status, String::from_utf8(body.to_vec()).unwrap())
+    }
+
+    const CONTENT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../content");
+
+    #[test]
+    fn a_broken_or_missing_content_file_stops_startup() {
+        let dir = std::env::temp_dir().join(format!("esper-content-{}", std::process::id()));
+        for sub in ["jobs", "monsters"] {
+            std::fs::create_dir_all(dir.join(sub)).unwrap();
+            for f in std::fs::read_dir(Path::new(CONTENT).join(sub)).unwrap() {
+                let f = f.unwrap().path();
+                std::fs::copy(&f, dir.join(sub).join(f.file_name().unwrap())).unwrap();
+            }
+        }
+        assert!(load_content(&dir).is_ok());
+
+        let wolf = dir.join("monsters/wolf.json");
+        let text = std::fs::read_to_string(&wolf).unwrap();
+        std::fs::write(&wolf, text.replacen("\"maxHp\"", "\"maxHP\"", 1)).unwrap();
+        let err = load_content(&dir).unwrap_err().to_string();
+        assert!(err.contains("wolf.json"), "{err}");
+
+        std::fs::remove_dir_all(dir.join("monsters")).unwrap();
+        assert!(load_content(&dir).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[tokio::test]
