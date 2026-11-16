@@ -1,1 +1,1 @@
-{"name":"Agrias","baseScores":{"str":15,"dex":11,"con":14,"int":9,"wis":12,"cha":13},"currentJobId":"knight","level":2,"xp":150,"jobPoints":{"knight":30},"unlockedJobIds":["squire","knight"],"learnedAbilityIds":["shield_bash"],"bestiary":{"goblin":{"monsterId":"goblin","timesDefeated":3}}}
+{"name":"Agrias","baseScores":{"str":15,"dex":11,"con":14,"int":9,"wis":12,"cha":13},"currentJobId":"knight","xp":150,"jobPoints":{"knight":30},"unlockedJobIds":["squire","knight"],"unknownKey":1}

@@ -19,6 +19,8 @@ use super::sessions;
 use crate::error::ApiError;
 
 const CEREMONY_TTL: Duration = Duration::from_secs(5 * 60);
+/// Far above honest use (a handful of players), low enough to bound memory.
+const MAX_CEREMONIES: usize = 10_000;
 
 enum Ceremony {
     Register(Uuid, PasskeyRegistration),
@@ -45,13 +47,17 @@ impl Passkeys {
         })
     }
 
-    fn put(&self, ceremony: Ceremony, now: Instant) -> String {
+    /// None when the store is full, so a flood of options requests cannot exhaust memory.
+    fn put(&self, ceremony: Ceremony, now: Instant) -> Option<String> {
         let mut raw = [0u8; 16];
         getrandom::fill(&mut raw).expect("OS random source");
         let id = base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, raw);
         let mut map = self.ceremonies.lock().unwrap();
+        if map.len() >= MAX_CEREMONIES {
+            return None;
+        }
         map.insert(id.clone(), (now + CEREMONY_TTL, ceremony));
-        id
+        Some(id)
     }
 
     /// Removes on read, so a replayed id fails even inside its TTL.
@@ -100,7 +106,9 @@ pub async fn register_options(
             tracing::error!("start registration: {e}");
             ApiError::INTERNAL
         })?;
-    let id = passkeys.put(Ceremony::Register(account_id, registration), Instant::now());
+    let id = passkeys
+        .put(Ceremony::Register(account_id, registration), Instant::now())
+        .ok_or(ApiError::RATE_LIMITED)?;
     let Json(mut body) = options(id, ccr);
     // webauthn-rs asks for a non-discoverable credential; Esper signs in without a username.
     let selection = &mut body["publicKey"]["authenticatorSelection"];
@@ -121,7 +129,7 @@ pub async fn register_verify(
         return Err(ApiError::INVALID_CEREMONY);
     };
     let credential: RegisterPublicKeyCredential =
-        serde_json::from_str(&body.response).map_err(rejected)?;
+        serde_json::from_str(&body.response).map_err(|_| rejected("response does not parse"))?;
     let passkey = passkeys
         .webauthn
         .finish_passkey_registration(&credential, &registration)
@@ -153,7 +161,9 @@ pub async fn login_options(State(passkeys): State<Arc<Passkeys>>) -> Result<Json
             tracing::error!("start authentication: {e}");
             ApiError::INTERNAL
         })?;
-    let id = passkeys.put(Ceremony::Login(authentication), Instant::now());
+    let id = passkeys
+        .put(Ceremony::Login(authentication), Instant::now())
+        .ok_or(ApiError::RATE_LIMITED)?;
     Ok(options(id, rcr))
 }
 
@@ -167,7 +177,8 @@ pub async fn login_verify(
     else {
         return Err(ApiError::INVALID_CEREMONY);
     };
-    let credential: PublicKeyCredential = serde_json::from_str(&body.response).map_err(rejected)?;
+    let credential: PublicKeyCredential =
+        serde_json::from_str(&body.response).map_err(|_| rejected("response does not parse"))?;
     let (account_id, credential_id) = passkeys
         .webauthn
         .identify_discoverable_authentication(&credential)
@@ -221,20 +232,30 @@ mod tests {
     fn a_ceremony_is_single_use() {
         let p = passkeys();
         let now = Instant::now();
-        let id = p.put(login(&p), now);
+        let id = p.put(login(&p), now).unwrap();
         assert!(p.take("unknown", now).is_none());
         assert!(p.take(&id, now).is_some());
         assert!(p.take(&id, now).is_none());
     }
 
     #[test]
+    fn a_full_store_refuses_new_ceremonies() {
+        let p = passkeys();
+        let now = Instant::now();
+        for _ in 0..MAX_CEREMONIES {
+            p.put(login(&p), now).unwrap();
+        }
+        assert!(p.put(login(&p), now).is_none());
+    }
+
+    #[test]
     fn a_ceremony_expires_after_five_minutes_and_is_purged() {
         let p = passkeys();
         let now = Instant::now();
-        let fresh = p.put(login(&p), now);
-        let old = p.put(login(&p), now);
+        let fresh = p.put(login(&p), now).unwrap();
+        let old = p.put(login(&p), now).unwrap();
         assert!(p.take(&old, now + CEREMONY_TTL).is_none());
-        let stale = p.put(login(&p), now);
+        let stale = p.put(login(&p), now).unwrap();
         p.purge(now + CEREMONY_TTL);
         assert!(p.ceremonies.lock().unwrap().is_empty());
         assert!(p.take(&stale, now).is_none());

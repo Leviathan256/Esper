@@ -289,8 +289,10 @@ fn dice_count(text: &str) -> Option<i32> {
         }
         m.parse::<i32>().ok()?;
     }
-    sides.parse::<i32>().ok()?;
-    count.parse().ok()
+    let sides: i32 = sides.parse().ok()?;
+    let count: i32 = count.parse().ok()?;
+    // Zero-sided dice would panic in combat's next_int(0).
+    (sides > 0 || count == 0).then_some(count)
 }
 
 /// A path of job ids with the first repeated last, or None when the graph of
