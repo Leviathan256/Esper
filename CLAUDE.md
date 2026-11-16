@@ -15,3 +15,7 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 ### Domain docs
 
 Single-context (root `GLOSSARY.md` + `docs/adr/`, created lazily). See `docs/agents/domain.md`.
+
+### Feature workflow
+
+Grill → spec → tickets → implement → review, in that order, for any change bigger than a one-file fix. See `docs/agents/workflow.md`.
