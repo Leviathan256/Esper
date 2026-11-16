@@ -30,6 +30,7 @@ spec:
                 - sh
                 - -euc
                 - |
+                  umask 077
                   f=/backups/esper-$(date +%Y-%m-%d).dump
                   pg_dump -Fc -h postgres -U esper -d esper -f "$f.partial"
                   mv "$f.partial" "$f"
