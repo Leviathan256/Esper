@@ -1,0 +1,9 @@
+# The deploy workflow sets newTag to the commit it built
+# (`kustomize edit set image`); the image is only ever pushed tagged by commit.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: ghcr.io/leviathan256/esper-server
+    newTag: set-by-deploy-workflow

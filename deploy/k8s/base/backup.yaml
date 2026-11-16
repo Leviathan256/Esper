@@ -1,0 +1,44 @@
+# Nightly pg_dump to the host's /var/backups/esper, 14 days kept (docs/SERVER.md
+# §9). Same disk as the database: off-site copies are still owed (§15).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: esper
+spec:
+  schedule: "17 3 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          containers:
+            - name: pg-dump
+              image: postgres:18
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres
+                      key: password
+              # Dump to a temp name first, so a failed run never leaves a truncated file
+              # that looks like a backup. -mtime +13 keeps today's file and the 13 before it.
+              command:
+                - sh
+                - -euc
+                - |
+                  f=/backups/esper-$(date +%Y-%m-%d).dump
+                  pg_dump -Fc -h postgres -U esper -d esper -f "$f.partial"
+                  mv "$f.partial" "$f"
+                  find /backups -name 'esper-*.dump*' -mtime +13 -delete
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+          volumes:
+            - name: backups
+              hostPath:
+                path: /var/backups/esper
+                type: DirectoryOrCreate

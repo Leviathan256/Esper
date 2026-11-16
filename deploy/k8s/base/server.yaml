@@ -1,0 +1,87 @@
+# The Esper server (docs/SERVER.md §2, §8). One replica with Recreate: the
+# ceremony and position stores are in memory, so two pods must never overlap.
+# Secrets come from the `esper-server` Secret (ESPER_DB_URL, ESPER_RP_ORIGINS),
+# created on the host, never in git.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: esper-server
+  namespace: esper
+data:
+  ESPER_RP_ID: esper.media
+  ESPER_ASSETLINKS_FILE: /etc/esper/assetlinks.json
+  RUST_LOG: info
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: esper-server
+  namespace: esper
+spec:
+  selector:
+    app: esper-server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: esper-server
+  namespace: esper
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: esper-server
+  template:
+    metadata:
+      labels:
+        app: esper-server
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: esper-server
+          image: ghcr.io/leviathan256/esper-server
+          envFrom:
+            - configMapRef:
+                name: esper-server
+            - secretRef:
+                name: esper-server
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          # /healthz also checks the database; give Postgres restarts time before killing the pod.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+            failureThreshold: 6
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: assetlinks
+              mountPath: /etc/esper
+              readOnly: true
+      volumes:
+        - name: assetlinks
+          configMap:
+            name: esper-assetlinks
