@@ -113,3 +113,73 @@ jobs:
 
       - name: Run engine and server tests
         run: gradle :engine:test :server:test --console=plain
+
+  # Rust server (docs/SERVER.md §11): format, lint and test against Postgres 18,
+  # then build the multi-arch image and smoke-test the amd64 one against the
+  # same database, up and down.
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: esper
+          POSTGRES_DB: esper_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ESPER_TEST_DB_URL: postgres://postgres:esper@localhost:5432/esper_test
+      # Build from the committed .sqlx/ query data, never a live database.
+      SQLX_OFFLINE: "true"
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install the pinned toolchain
+        run: rustup toolchain install
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (linux/amd64, linux/arm64)
+        working-directory: .
+        run: docker buildx build -f server/Dockerfile --platform linux/amd64,linux/arm64 .
+
+      - name: Smoke-test the amd64 image
+        working-directory: .
+        run: |
+          set -euo pipefail
+          docker buildx build -f server/Dockerfile --platform linux/amd64 --load -t esper-server:ci .
+          docker run -d --name esper --network host \
+            -e ESPER_BIND=127.0.0.1:8080 \
+            -e ESPER_DB_URL=postgres://postgres:esper@127.0.0.1:5432/esper_test \
+            esper-server:ci
+          body="$(curl -fsS --retry 10 --retry-delay 1 --retry-connrefused http://127.0.0.1:8080/healthz)"
+          [ "$body" = ok ] || { echo "healthz with the database up: $body"; exit 1; }
+          docker stop "${{ job.services.postgres.id }}"
+          code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz)"
+          [ "$code" = 503 ] || { echo "healthz with the database down: $code"; exit 1; }
+
+      - name: Server log
+        if: always()
+        working-directory: .
+        run: docker logs esper 2>&1 || true
