@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO characters (account_id, state) VALUES ($1, $2::text::jsonb) ON CONFLICT (account_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f8af766eca17ad4102ea6172fdefd7a053948e7395118190902c360ed80c6f4d"
+}
