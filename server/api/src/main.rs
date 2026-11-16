@@ -3,6 +3,7 @@
 //! stops startup (§6, §8).
 
 mod auth;
+mod character;
 mod config;
 mod error;
 mod location;
@@ -61,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     MIGRATOR.run(&pool).await?;
 
     let passkeys = Passkeys::new(&config.rp_id, &config.rp_origins)?;
-    let state = AppState::new(pool, passkeys, config.assetlinks_file);
+    let state = AppState::new(pool, passkeys, content, config.assetlinks_file);
     tokio::spawn(minute_tick(state.clone()));
 
     let listener = tokio::net::TcpListener::bind(&config.bind).await?;
@@ -108,6 +109,7 @@ fn pool_options() -> PgPoolOptions {
 struct AppState {
     pool: PgPool,
     passkeys: Arc<Passkeys>,
+    catalog: Arc<rules::content::Catalog>,
     assetlinks_file: Arc<PathBuf>,
     positions: Arc<Positions>,
     sockets: Arc<tokio::sync::Semaphore>,
@@ -115,7 +117,12 @@ struct AppState {
 }
 
 impl AppState {
-    fn new(pool: PgPool, passkeys: Passkeys, assetlinks_file: PathBuf) -> Self {
+    fn new(
+        pool: PgPool,
+        passkeys: Passkeys,
+        catalog: rules::content::Catalog,
+        assetlinks_file: PathBuf,
+    ) -> Self {
         // 20 per minute per client IP: a burst of 20, one back every 3 s.
         let auth_limit = GovernorConfigBuilder::default()
             .per_millisecond(3000)
@@ -126,6 +133,7 @@ impl AppState {
         Self {
             pool,
             passkeys: Arc::new(passkeys),
+            catalog: Arc::new(catalog),
             assetlinks_file: Arc::new(assetlinks_file),
             positions: Arc::default(),
             sockets: Arc::new(tokio::sync::Semaphore::new(realtime::MAX_SOCKETS)),
@@ -143,6 +151,12 @@ impl FromRef<AppState> for PgPool {
 impl FromRef<AppState> for Arc<Passkeys> {
     fn from_ref(s: &AppState) -> Self {
         s.passkeys.clone()
+    }
+}
+
+impl FromRef<AppState> for Arc<rules::content::Catalog> {
+    fn from_ref(s: &AppState) -> Self {
+        s.catalog.clone()
     }
 }
 
@@ -176,6 +190,12 @@ fn app(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
         .route("/.well-known/assetlinks.json", get(assetlinks))
+        .route(
+            "/v1/character",
+            get(character::get_character)
+                .post(character::post_character)
+                .put(character::put_character),
+        )
         .route("/v1/location", post(location::post_location))
         .route("/v1/ws", get(realtime::ws))
         .merge(auth)
@@ -262,7 +282,8 @@ mod tests {
     fn test_state(pool: PgPool) -> AppState {
         let origin = webauthn_rs::prelude::Url::parse("android:apk-key-hash:abc").unwrap();
         let passkeys = Passkeys::new("esper.media", &[origin]).unwrap();
-        AppState::new(pool, passkeys, "/nonexistent".into())
+        let catalog = load_content(Path::new(CONTENT)).unwrap();
+        AppState::new(pool, passkeys, catalog, "/nonexistent".into())
     }
 
     fn test_app(pool: PgPool, assetlinks_file: &str) -> Router {
@@ -564,6 +585,130 @@ mod tests {
         assert!(state.positions.has(account));
         assert_eq!(logout(&app, Some(&token)).await.0, StatusCode::NO_CONTENT);
         assert!(!state.positions.has(account));
+    }
+
+    async fn character(
+        app: &Router,
+        method: &str,
+        token: Option<&str>,
+        body: &str,
+    ) -> (StatusCode, String) {
+        let mut req = Request::builder()
+            .method(method)
+            .uri("/v1/character")
+            .header(CONTENT_TYPE, "application/json");
+        if let Some(t) = token {
+            req = req.header("Authorization", format!("Bearer {t}"));
+        }
+        send(app, req.body(Body::from(body.to_owned())).unwrap()).await
+    }
+
+    fn error_of(body: &str) -> String {
+        serde_json::from_str::<Value>(body).unwrap()["error"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    #[tokio::test]
+    async fn character_create_conflict_load_save() {
+        use rules::character::save_codec::{decode, encode};
+        let Some(pool) = sessions::tests::test_pool().await else {
+            return;
+        };
+        let app = test_app(pool.clone(), "/nonexistent");
+        let account = sessions::tests::new_account(&pool).await;
+        let token = sessions::tests::new_session(&pool, account).await;
+        let t = Some(token.as_str());
+        let ramza = r#"{"name":"Ramza","startingJobId":"squire"}"#;
+
+        assert_eq!(
+            character(&app, "GET", None, "").await.0,
+            StatusCode::UNAUTHORIZED
+        );
+        let (status, body) = character(&app, "GET", t, "").await;
+        assert_eq!(
+            (status, error_of(&body)),
+            (StatusCode::NOT_FOUND, "no_character".into())
+        );
+        for (bad, code) in [
+            (r#"{"name":" ","startingJobId":"squire"}"#, "invalid_name"),
+            (r#"{"name":"A","startingJobId":"knight"}"#, "invalid_job"),
+            (r#"{"name":"A"}"#, "bad_request"),
+        ] {
+            let (status, body) = character(&app, "POST", t, bad).await;
+            assert_eq!(
+                (status, error_of(&body)),
+                (StatusCode::BAD_REQUEST, code.into()),
+                "{bad}"
+            );
+        }
+
+        let (status, created) = character(&app, "POST", t, ramza).await;
+        assert_eq!(status, StatusCode::CREATED);
+        let state = decode(&created).unwrap();
+        assert_eq!((state.name.as_str(), state.level), ("Ramza", 1));
+        let (status, body) = character(&app, "POST", t, ramza).await;
+        assert_eq!(
+            (status, error_of(&body)),
+            (StatusCode::CONFLICT, "character_exists".into())
+        );
+        // jsonb reorders keys; GET answers in the codec's own order.
+        assert_eq!(
+            character(&app, "GET", t, "").await,
+            (StatusCode::OK, created)
+        );
+
+        let mut up = state.clone();
+        up.level = 2;
+        up.xp = 5;
+        assert_eq!(
+            character(&app, "PUT", t, &encode(&up)).await,
+            (StatusCode::NO_CONTENT, String::new())
+        );
+        assert_eq!(character(&app, "GET", t, "").await.1, encode(&up));
+
+        let mut down = up.clone();
+        down.level = 1;
+        let mut renamed = up.clone();
+        renamed.name = "Delita".into();
+        let mut unknown = up.clone();
+        unknown.learned_ability_ids.insert("nope".into());
+        for (bad, code) in [
+            (encode(&down), "invalid_state"),
+            (encode(&renamed), "invalid_state"),
+            (encode(&unknown), "invalid_job"),
+            ("{not json".to_owned(), "bad_request"),
+        ] {
+            let (status, body) = character(&app, "PUT", t, &bad).await;
+            assert_eq!(
+                (status, error_of(&body)),
+                (StatusCode::BAD_REQUEST, code.into()),
+                "{bad}"
+            );
+        }
+        assert_eq!(character(&app, "GET", t, "").await.1, encode(&up));
+    }
+
+    #[tokio::test]
+    async fn put_without_a_row_imports_a_local_save() {
+        let Some(pool) = sessions::tests::test_pool().await else {
+            return;
+        };
+        let app = test_app(pool.clone(), "/nonexistent");
+        let account = sessions::tests::new_account(&pool).await;
+        let token = sessions::tests::new_session(&pool, account).await;
+        // A pre-server v0 save, past the starting jobs.
+        let v0 = include_str!("../../../content/fixtures/save/v0.json");
+        let expected = include_str!("../../../content/fixtures/save/v0.expected.json");
+        assert_eq!(
+            character(&app, "PUT", Some(&token), v0).await.0,
+            StatusCode::NO_CONTENT
+        );
+        assert_eq!(
+            character(&app, "GET", Some(&token), "").await,
+            (StatusCode::OK, expected.trim_end().to_owned())
+        );
     }
 
     type Client = tokio_tungstenite::WebSocketStream<

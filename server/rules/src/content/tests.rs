@@ -85,7 +85,7 @@ fn read_dir(dir: &Path) -> BTreeMap<String, String> {
     files
 }
 
-fn shipped() -> Catalog {
+pub(crate) fn shipped() -> Catalog {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../content");
     load(
         &read_dir(&dir.join("jobs")),

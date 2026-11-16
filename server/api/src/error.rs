@@ -54,6 +54,13 @@ impl ApiError {
         "rate_limited",
         "Too many attempts. Wait a minute and try again.",
     );
+    pub const NO_CHARACTER: Self =
+        Self::new(StatusCode::NOT_FOUND, "no_character", "No character yet.");
+    pub const CHARACTER_EXISTS: Self = Self::new(
+        StatusCode::CONFLICT,
+        "character_exists",
+        "You already have a character.",
+    );
     pub const INTERNAL: Self = Self::new(
         StatusCode::INTERNAL_SERVER_ERROR,
         "internal",
@@ -72,6 +79,13 @@ impl IntoResponse for ApiError {
 impl From<JsonRejection> for ApiError {
     fn from(_: JsonRejection) -> Self {
         Self::BAD_REQUEST
+    }
+}
+
+/// Every character rule breach is a 400 with the rule's own code.
+impl From<rules::character::Rejection> for ApiError {
+    fn from(r: rules::character::Rejection) -> Self {
+        Self::new(StatusCode::BAD_REQUEST, r.code, r.message)
     }
 }
 
