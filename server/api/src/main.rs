@@ -5,6 +5,8 @@
 mod auth;
 mod config;
 mod error;
+mod location;
+mod realtime;
 
 use std::{
     collections::BTreeMap,
@@ -32,6 +34,7 @@ use tracing_subscriber::EnvFilter;
 
 use auth::{ClientIp, passkeys, passkeys::Passkeys, sessions};
 use error::ApiError;
+use location::Positions;
 
 static MIGRATOR: Migrator = sqlx::migrate!("../migrations");
 
@@ -106,6 +109,7 @@ struct AppState {
     pool: PgPool,
     passkeys: Arc<Passkeys>,
     assetlinks_file: Arc<PathBuf>,
+    positions: Arc<Positions>,
     auth_limit: Arc<GovernorConfig<ClientIp, NoOpMiddleware>>,
 }
 
@@ -122,6 +126,7 @@ impl AppState {
             pool,
             passkeys: Arc::new(passkeys),
             assetlinks_file: Arc::new(assetlinks_file),
+            positions: Arc::default(),
             auth_limit: Arc::new(auth_limit),
         }
     }
@@ -136,6 +141,12 @@ impl FromRef<AppState> for PgPool {
 impl FromRef<AppState> for Arc<Passkeys> {
     fn from_ref(s: &AppState) -> Self {
         s.passkeys.clone()
+    }
+}
+
+impl FromRef<AppState> for Arc<Positions> {
+    fn from_ref(s: &AppState) -> Self {
+        s.positions.clone()
     }
 }
 
@@ -157,6 +168,8 @@ fn app(state: AppState) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
         .route("/.well-known/assetlinks.json", get(assetlinks))
+        .route("/v1/location", post(location::post_location))
+        .route("/v1/ws", get(realtime::ws))
         .merge(auth)
         .layer(DefaultBodyLimit::max(MAX_BODY))
         .layer(middleware::from_fn(log_request))
@@ -191,12 +204,13 @@ async fn assetlinks(State(state): State<AppState>) -> Response {
     }
 }
 
-/// Expired ceremonies, expired sessions, idle rate-limit keys.
+/// Expired ceremonies, stale positions, expired sessions, idle rate-limit keys.
 async fn minute_tick(state: AppState) {
     let mut tick = tokio::time::interval(Duration::from_secs(60));
     loop {
         tick.tick().await;
         state.passkeys.purge(Instant::now());
+        state.positions.purge(Instant::now());
         state.auth_limit.limiter().retain_recent();
         if let Err(e) = sessions::purge_expired(&state.pool).await {
             tracing::warn!("session purge failed: {e}");
@@ -237,10 +251,16 @@ mod tests {
     use serde_json::{Value, json};
     use tower::ServiceExt;
 
-    fn test_app(pool: PgPool, assetlinks_file: &str) -> Router {
+    fn test_state(pool: PgPool) -> AppState {
         let origin = webauthn_rs::prelude::Url::parse("android:apk-key-hash:abc").unwrap();
         let passkeys = Passkeys::new("esper.media", &[origin]).unwrap();
-        app(AppState::new(pool, passkeys, assetlinks_file.into()))
+        AppState::new(pool, passkeys, "/nonexistent".into())
+    }
+
+    fn test_app(pool: PgPool, assetlinks_file: &str) -> Router {
+        let mut state = test_state(pool);
+        state.assetlinks_file = Arc::new(assetlinks_file.into());
+        app(state)
     }
 
     /// For routes that never reach the database.
@@ -265,6 +285,14 @@ mod tests {
             .unwrap();
         let (status, body) = send(app, req).await;
         (status, serde_json::from_str(&body).unwrap_or(Value::Null))
+    }
+
+    async fn post_location(app: &Router, token: Option<&str>, body: &str) -> (StatusCode, String) {
+        let mut req = Request::post("/v1/location").header(CONTENT_TYPE, "application/json");
+        if let Some(t) = token {
+            req = req.header("Authorization", format!("Bearer {t}"));
+        }
+        send(app, req.body(Body::from(body.to_owned())).unwrap()).await
     }
 
     async fn logout(app: &Router, token: Option<&str>) -> (StatusCode, String) {
@@ -495,6 +523,167 @@ mod tests {
         assert_eq!(logout(&app, Some(&b)).await, unauthorized);
     }
 
+    #[tokio::test]
+    async fn location_needs_a_session_validates_and_logout_drops_it() {
+        let Some(pool) = sessions::tests::test_pool().await else {
+            return;
+        };
+        let state = test_state(pool.clone());
+        let app = app(state.clone());
+        let account = sessions::tests::new_account(&pool).await;
+        let token = sessions::tests::new_session(&pool, account).await;
+        let ok = r#"{"lat":51.5,"lon":-0.12,"accuracyM":5.0}"#;
+
+        assert_eq!(
+            post_location(&app, None, ok).await.0,
+            StatusCode::UNAUTHORIZED
+        );
+        for bad in [
+            r#"{"lat":91.0,"lon":0.0,"accuracyM":5.0}"#,
+            r#"{"lat":0.0,"lon":-181,"accuracyM":5.0}"#,
+            r#"{"lat":0.0,"lon":0.0,"accuracyM":-1}"#,
+        ] {
+            let (status, body) = post_location(&app, Some(&token), bad).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+            assert!(body.contains(r#""error":"invalid_fix""#), "{body}");
+        }
+        // JSON has no NaN, so a NaN can only arrive malformed.
+        for bad in [r#"{"lat":NaN,"lon":0.0,"accuracyM":5.0}"#, r#"{"lat":0.0}"#] {
+            let (status, body) = post_location(&app, Some(&token), bad).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+            assert!(body.contains(r#""error":"bad_request""#), "{body}");
+        }
+        assert!(!state.positions.has(account));
+
+        assert_eq!(
+            post_location(&app, Some(&token), ok).await,
+            (StatusCode::NO_CONTENT, String::new())
+        );
+        assert!(state.positions.has(account));
+        assert_eq!(logout(&app, Some(&token)).await.0, StatusCode::NO_CONTENT);
+        assert!(!state.positions.has(account));
+    }
+
+    type Client = tokio_tungstenite::WebSocketStream<
+        tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+    >;
+
+    /// A real listener: the upgrade needs a real connection.
+    async fn serve(state: AppState) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("ws://{}/v1/ws", listener.local_addr().unwrap());
+        tokio::spawn(async move { axum::serve(listener, app(state)).await });
+        url
+    }
+
+    async fn connect(
+        url: &str,
+        token: Option<&str>,
+    ) -> Result<Client, tokio_tungstenite::tungstenite::Error> {
+        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+        let mut req = url.into_client_request().unwrap();
+        if let Some(t) = token {
+            let bearer = format!("Bearer {t}").parse().unwrap();
+            req.headers_mut().insert("Authorization", bearer);
+        }
+        tokio_tungstenite::connect_async(req)
+            .await
+            .map(|(ws, _)| ws)
+    }
+
+    async fn next_text(ws: &mut Client) -> String {
+        use futures_util::StreamExt;
+        match ws.next().await {
+            Some(Ok(tokio_tungstenite::tungstenite::Message::Text(t))) => t.to_string(),
+            other => panic!("expected text, got {other:?}"),
+        }
+    }
+
+    async fn round_trip(ws: &mut Client, msg: &str) -> String {
+        use futures_util::SinkExt;
+        ws.send(msg.into()).await.unwrap();
+        next_text(ws).await
+    }
+
+    #[tokio::test]
+    async fn websocket_needs_a_token_says_hello_acks_loc_and_stays_open_on_errors() {
+        let Some(pool) = sessions::tests::test_pool().await else {
+            return;
+        };
+        let state = test_state(pool.clone());
+        let url = serve(state.clone()).await;
+        let account = sessions::tests::new_account(&pool).await;
+        let token = sessions::tests::new_session(&pool, account).await;
+
+        for bad in [None, Some("not-a-token")] {
+            match connect(&url, bad).await {
+                Err(tokio_tungstenite::tungstenite::Error::Http(res)) => {
+                    assert_eq!(res.status(), StatusCode::UNAUTHORIZED)
+                }
+                other => panic!("expected 401, got {:?}", other.map(|_| ())),
+            }
+        }
+
+        let mut ws = connect(&url, Some(&token)).await.unwrap();
+        assert_eq!(next_text(&mut ws).await, r#"{"t":"hello"}"#);
+        let cases = [
+            (
+                r#"{"t":"loc","id":1,"d":{"lat":100.0,"lon":2.0,"accuracyM":3.0}}"#,
+                r#"{"t":"err","id":1,"d":{"error":"invalid_fix"}}"#,
+            ),
+            (
+                r#"{"t":"loc","id":2}"#,
+                r#"{"t":"err","id":2,"d":{"error":"invalid_fix"}}"#,
+            ),
+            (
+                r#"{"t":"what","id":3}"#,
+                r#"{"t":"err","id":3,"d":{"error":"unknown_type"}}"#,
+            ),
+            ("not json", r#"{"t":"err","d":{"error":"bad_request"}}"#),
+        ];
+        for (send, want) in cases {
+            assert_eq!(round_trip(&mut ws, send).await, want, "{send}");
+        }
+        assert!(!state.positions.has(account));
+        let loc = r#"{"t":"loc","id":4,"d":{"lat":1.0,"lon":2.0,"accuracyM":3.0}}"#;
+        assert_eq!(round_trip(&mut ws, loc).await, r#"{"t":"ack","id":4}"#);
+        assert!(state.positions.has(account));
+    }
+
+    #[tokio::test]
+    async fn websocket_pings_every_30_s_and_closes_after_60_s_of_silence() {
+        use futures_util::StreamExt;
+        use tokio_tungstenite::tungstenite::Message;
+        let Some(pool) = sessions::tests::test_pool().await else {
+            return;
+        };
+        let url = serve(test_state(pool.clone())).await;
+        let account = sessions::tests::new_account(&pool).await;
+        let token = sessions::tests::new_session(&pool, account).await;
+        let mut ws = connect(&url, Some(&token)).await.unwrap();
+        assert_eq!(next_text(&mut ws).await, r#"{"t":"hello"}"#);
+
+        // Paused only now, so the database round trips above ran on real time.
+        tokio::time::pause();
+        let start = tokio::time::Instant::now();
+        // Silent client: it neither reads nor answers until the server has given up.
+        tokio::time::sleep(Duration::from_secs(61)).await;
+        // Bounded, so a server that never closes fails instead of hanging.
+        let (mut pings, mut closed) = (0, false);
+        for _ in 0..3 {
+            match ws.next().await {
+                Some(Ok(Message::Ping(_))) => pings += 1,
+                Some(Ok(other)) => panic!("unexpected {other:?}"),
+                Some(Err(_)) | None => {
+                    closed = true;
+                    break;
+                }
+            }
+        }
+        assert!(closed && (1..=2).contains(&pings), "{pings} pings");
+        assert!(start.elapsed() < Duration::from_secs(62));
+    }
+
     /// Every log line from now on, at every level and from every crate. Global,
     /// because a thread-local subscriber misses callsites other test threads
     /// registered first; the other tests' lines land here too, which is harmless.
@@ -525,7 +714,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn session_tokens_never_reach_the_log() {
+    async fn session_tokens_and_positions_never_reach_the_log() {
         let Some(pool) = sessions::tests::test_pool().await else {
             return;
         };
@@ -533,6 +722,11 @@ mod tests {
         let account = sessions::tests::new_account(&pool).await;
         let token = sessions::tests::new_session(&pool, account).await;
         captured_logs();
+        let fix = r#"{"lat":12.3456789,"lon":98.7654321,"accuracyM":4.25}"#;
+        assert_eq!(
+            post_location(&app, Some(&token), fix).await.0,
+            StatusCode::NO_CONTENT
+        );
         assert_eq!(logout(&app, Some(&token)).await.0, StatusCode::NO_CONTENT);
         assert_eq!(logout(&app, Some(&token)).await.0, StatusCode::UNAUTHORIZED);
         let (_, body) = post_json(&app, "/v1/auth/register/options", json!({})).await;
@@ -541,6 +735,10 @@ mod tests {
         let log = captured_logs();
         assert!(log.contains("POST /v1/auth/logout 204"), "{log}");
         assert!(log.contains("POST /v1/auth/register/verify 400"), "{log}");
+        assert!(log.contains("POST /v1/location 204"), "{log}");
         assert!(!log.contains(&token), "{log}");
+        for n in ["12.345", "98.765", "4.25"] {
+            assert!(!log.contains(n), "{log}");
+        }
     }
 }

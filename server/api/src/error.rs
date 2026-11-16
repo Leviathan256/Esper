@@ -38,6 +38,11 @@ impl ApiError {
         "passkey_rejected",
         "The passkey was not accepted.",
     );
+    pub const INVALID_FIX: Self = Self::new(
+        StatusCode::BAD_REQUEST,
+        "invalid_fix",
+        "That location is out of range.",
+    );
     pub const UNAUTHORIZED: Self = Self::new(
         StatusCode::UNAUTHORIZED,
         "unauthorized",
