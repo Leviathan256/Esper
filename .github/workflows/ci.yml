@@ -176,7 +176,7 @@ jobs:
           body="$(curl -fsS --retry 10 --retry-delay 1 --retry-connrefused http://127.0.0.1:8080/healthz)"
           [ "$body" = ok ] || { echo "healthz with the database up: $body"; exit 1; }
           docker stop "${{ job.services.postgres.id }}"
-          code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz)"
+          code="$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/healthz)"
           [ "$code" = 503 ] || { echo "healthz with the database down: $code"; exit 1; }
 
       - name: Server log
