@@ -200,6 +200,12 @@ gradle :engine:test --configure-on-demand
 # The server's API tests need Postgres; without ESPER_TEST_DB_URL they skip:
 gradle :server:test
 
+# The Rust server (server/, replacing the Kotlin one). Database tests skip without
+# ESPER_TEST_DB_URL=postgres://user@host:port/db. Builds use the committed .sqlx/ data:
+(cd server && cargo test)
+# After adding or changing a sqlx::query! macro, refresh .sqlx/ against a migrated database:
+(cd server && DATABASE_URL=postgres://… SQLX_OFFLINE_DIR="$PWD/.sqlx" cargo build)
+
 # The Android app needs the Android SDK, and CI builds it:
 gradle :app:assembleRelease
 ```
