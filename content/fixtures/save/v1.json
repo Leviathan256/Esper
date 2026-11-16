@@ -1,0 +1,1 @@
+{"schemaVersion":1,"name":"Ramza","baseScores":{"str":14,"dex":12,"con":13,"int":10,"wis":10,"cha":10},"currentJobId":"knight","level":3,"xp":350,"jobPoints":{"squire":100,"knight":40},"unlockedJobIds":["squire","knight"],"learnedAbilityIds":["shield_bash","guard"],"bestiary":{"goblin":{"monsterId":"goblin","timesDefeated":5},"wolf":{"monsterId":"wolf","timesDefeated":1}}}
