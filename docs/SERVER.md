@@ -233,7 +233,10 @@ let webauthn = builder.build()?;
   `build-apk` run summary (§9).
 - Android checks `https://esper.media/.well-known/assetlinks.json` lists the
   package + cert fingerprint before it will create or use a passkey for that RP
-  ID. Relation needed: `delegate_permission/common.get_login_creds` only.
+  ID. Relations: `delegate_permission/common.get_login_creds` and
+  `delegate_permission/common.handle_all_urls`, plus the app's
+  `asset_statements` manifest entry pointing at the same file, as Google's
+  Credential Manager prerequisites list.
 
 ### Registration
 
