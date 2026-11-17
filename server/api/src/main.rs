@@ -1,11 +1,12 @@
 //! Esper server (docs/SERVER.md): loads content and migrates the database on
-//! start, then serves the API. Invalid content or an empty `ESPER_RP_ORIGINS`
-//! stops startup (§6, §8).
+//! start, then serves the API. Invalid content, an empty `ESPER_RP_ORIGINS` or
+//! a region `.poly` that exists but does not parse stops startup (§6, §8).
 
 mod auth;
 mod character;
 mod config;
 mod error;
+mod hazards;
 mod location;
 mod realtime;
 
@@ -35,6 +36,7 @@ use tracing_subscriber::EnvFilter;
 
 use auth::{ClientIp, passkeys, passkeys::Passkeys, sessions};
 use error::ApiError;
+use hazards::Hazards;
 use location::Positions;
 
 static MIGRATOR: Migrator = sqlx::migrate!("../migrations");
@@ -62,7 +64,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     MIGRATOR.run(&pool).await?;
 
     let passkeys = Passkeys::new(&config.rp_id, &config.rp_origins)?;
-    let state = AppState::new(pool, passkeys, content, config.assetlinks_file);
+    let region = hazards::Region::load(&config.hazard_region_poly)?;
+    if config.overpass_url.is_none() || region.is_none() {
+        tracing::warn!(
+            "hazards off, /v1/hazards answers 503: needs ESPER_OVERPASS_URL and {}",
+            config.hazard_region_poly.display()
+        );
+    }
+    let hazards = Hazards::new(config.overpass_url.zip(region));
+    let state = AppState::new(pool, passkeys, content, config.assetlinks_file, hazards);
     tokio::spawn(minute_tick(state.clone()));
 
     let listener = tokio::net::TcpListener::bind(&config.bind).await?;
@@ -112,6 +122,7 @@ struct AppState {
     catalog: Arc<rules::content::Catalog>,
     assetlinks_file: Arc<PathBuf>,
     positions: Arc<Positions>,
+    hazards: Arc<Hazards>,
     sockets: Arc<tokio::sync::Semaphore>,
     auth_limit: Arc<GovernorConfig<ClientIp, NoOpMiddleware>>,
 }
@@ -122,6 +133,7 @@ impl AppState {
         passkeys: Passkeys,
         catalog: rules::content::Catalog,
         assetlinks_file: PathBuf,
+        hazards: Hazards,
     ) -> Self {
         // 20 per minute per client IP: a burst of 20, one back every 3 s.
         let auth_limit = GovernorConfigBuilder::default()
@@ -136,6 +148,7 @@ impl AppState {
             catalog: Arc::new(catalog),
             assetlinks_file: Arc::new(assetlinks_file),
             positions: Arc::default(),
+            hazards: Arc::new(hazards),
             sockets: Arc::new(tokio::sync::Semaphore::new(realtime::MAX_SOCKETS)),
             auth_limit: Arc::new(auth_limit),
         }
@@ -172,6 +185,12 @@ impl FromRef<AppState> for Arc<Positions> {
     }
 }
 
+impl FromRef<AppState> for Arc<Hazards> {
+    fn from_ref(s: &AppState) -> Self {
+        s.hazards.clone()
+    }
+}
+
 fn app(state: AppState) -> Router {
     let auth = Router::new()
         .route(
@@ -197,6 +216,7 @@ fn app(state: AppState) -> Router {
                 .put(character::put_character),
         )
         .route("/v1/location", post(location::post_location))
+        .route("/v1/hazards", get(hazards::get_hazards))
         .route("/v1/ws", get(realtime::ws))
         .merge(auth)
         .layer(DefaultBodyLimit::max(MAX_BODY))
@@ -283,7 +303,13 @@ mod tests {
         let origin = webauthn_rs::prelude::Url::parse("android:apk-key-hash:abc").unwrap();
         let passkeys = Passkeys::new("esper.media", &[origin]).unwrap();
         let catalog = load_content(Path::new(CONTENT)).unwrap();
-        AppState::new(pool, passkeys, catalog, "/nonexistent".into())
+        AppState::new(
+            pool,
+            passkeys,
+            catalog,
+            "/nonexistent".into(),
+            Hazards::new(None),
+        )
     }
 
     fn test_app(pool: PgPool, assetlinks_file: &str) -> Router {
@@ -585,6 +611,304 @@ mod tests {
         assert!(state.positions.has(account));
         assert_eq!(logout(&app, Some(&token)).await.0, StatusCode::NO_CONTENT);
         assert!(!state.positions.has(account));
+    }
+
+    /// A fake Overpass on a real port: one fixed answer, and the queries it was sent.
+    struct Stub {
+        url: axum::http::Uri,
+        seen: Arc<std::sync::Mutex<Vec<String>>>,
+        /// No permit: every answer waits. `add_permits(1)` lets them all through.
+        gate: Arc<tokio::sync::Semaphore>,
+    }
+
+    async fn stub_overpass(status: StatusCode, body: String, open: bool) -> Stub {
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let gate = Arc::new(tokio::sync::Semaphore::new(open.into()));
+        let (log, wait) = (seen.clone(), gate.clone());
+        let reply = move |axum::Form(form): axum::Form<BTreeMap<String, String>>| async move {
+            log.lock().unwrap().push(form["data"].clone());
+            // Taken and given straight back.
+            let _ = wait.acquire().await;
+            (status, body)
+        };
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/api/interpreter", listener.local_addr().unwrap());
+        let stub = Router::new().route("/api/interpreter", post(reply));
+        tokio::spawn(async move { axum::serve(listener, stub).await });
+        Stub {
+            url: url.parse().unwrap(),
+            seen,
+            gate,
+        }
+    }
+
+    /// Covers `hazards::tests::SQUARE`; `None` is the not-configured server.
+    fn hazards_app(
+        pool: PgPool,
+        overpass: Option<axum::http::Uri>,
+        timeout: Duration,
+    ) -> (Router, Arc<Hazards>) {
+        let region = hazards::Region::parse(hazards::tests::SQUARE).unwrap();
+        let mut hazards = Hazards::new(overpass.map(|url| (url, region)));
+        hazards.timeout = timeout;
+        // No test waits the real 2 s for a slot.
+        hazards.slot_wait = Duration::from_millis(200);
+        let mut state = test_state(pool);
+        state.hazards = Arc::new(hazards);
+        (app(state.clone()), state.hazards)
+    }
+
+    /// Polls `done` every 10 ms; panics after 5 s instead of hanging.
+    async fn until(done: impl Fn() -> bool) {
+        for _ in 0..500 {
+            if done() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        panic!("still not done after 5 s");
+    }
+
+    async fn get_hazards(app: &Router, token: Option<&str>, query: &str) -> (StatusCode, String) {
+        let mut req = Request::get(format!("/v1/hazards?{query}"));
+        if let Some(t) = token {
+            req = req.header("Authorization", format!("Bearer {t}"));
+        }
+        send(app, req.body(Body::empty()).unwrap()).await
+    }
+
+    #[tokio::test]
+    async fn hazards_pass_overpass_through_inside_the_region_and_fail_closed_otherwise() {
+        let Some(pool) = sessions::tests::test_pool().await else {
+            return;
+        };
+        let account = sessions::tests::new_account(&pool).await;
+        let token = sessions::tests::new_session(&pool, account).await;
+        let t = Some(token.as_str());
+        let inside = "lat=47.1234567&lon=8.6234567";
+        let overpass_json = hazards::tests::answer(60);
+        let stub = stub_overpass(StatusCode::OK, overpass_json.clone(), true).await;
+        let seen = stub.seen;
+        let (app, _) = hazards_app(pool.clone(), Some(stub.url), Duration::from_secs(16));
+        captured_logs();
+
+        assert_eq!(
+            get_hazards(&app, None, inside).await.0,
+            StatusCode::UNAUTHORIZED
+        );
+        for bad in [
+            "",
+            "lat=47.12",
+            "lat=x&lon=8.62",
+            "lat=91&lon=8.62",
+            "lat=47.12&lon=-181",
+            "lat=NaN&lon=8.62",
+            "lat=47.12&lon=inf",
+        ] {
+            let (status, _) = get_hazards(&app, t, bad).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+        }
+        // Far outside, in the hole, and 56 m inside the south edge.
+        for outside in [
+            "lat=40&lon=8.62",
+            "lat=47.15&lon=8.65",
+            "lat=47.1005&lon=8.62",
+        ] {
+            let (status, body) = get_hazards(&app, t, outside).await;
+            assert_eq!(
+                (status, error_of(&body)),
+                (StatusCode::NOT_FOUND, "outside_coverage".into()),
+                "{outside}"
+            );
+        }
+        assert!(seen.lock().unwrap().is_empty());
+
+        let req = Request::get(format!("/v1/hazards?{inside}"))
+            .header("Authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap();
+        let res = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(res.headers()[CONTENT_TYPE], "application/json");
+        assert_eq!(
+            to_bytes(res.into_body(), 64 * 1024).await.unwrap(),
+            overpass_json
+        );
+        let sent = seen.lock().unwrap().clone();
+        assert_eq!(sent, [hazards::query(47.1234567, 8.6234567)]);
+        assert!(sent[0].contains("way(around:40,47.1234567,8.6234567)[highway];"));
+
+        let fast = Duration::from_millis(500);
+        let mut failing = vec![hazards_app(pool.clone(), None, fast).0];
+        let eight_days = hazards::tests::answer(8 * 86_400);
+        for (status, body, open) in [
+            (StatusCode::BAD_GATEWAY, overpass_json.clone(), true),
+            (
+                StatusCode::OK,
+                r#"{"remark":"runtime error: Query timed out in \"query\" at line 3 after 15 seconds.","elements":[]}"#.into(),
+                true,
+            ),
+            (StatusCode::OK, "<html>not json</html>".into(), true),
+            // Never answers.
+            (StatusCode::OK, overpass_json.clone(), false),
+            (StatusCode::OK, eight_days, true),
+            (StatusCode::OK, r#"{"remark":"","elements":[]}"#.into(), true),
+            (
+                StatusCode::OK,
+                r#"{"osm3s":{"timestamp_osm_base":"16 Nov 2026"},"elements":[]}"#.into(),
+                true,
+            ),
+        ] {
+            let stub = stub_overpass(status, body, open).await;
+            failing.push(hazards_app(pool.clone(), Some(stub.url), fast).0);
+        }
+        // Nothing listens on port 1.
+        let refused = "http://127.0.0.1:1/api/interpreter".parse().unwrap();
+        failing.push(hazards_app(pool.clone(), Some(refused), fast).0);
+        for (i, app) in failing.iter().enumerate() {
+            let (status, body) = get_hazards(app, t, inside).await;
+            assert_eq!(
+                (status, error_of(&body)),
+                (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "hazards_unavailable".into()
+                ),
+                "case {i}"
+            );
+        }
+
+        let log = captured_logs();
+        assert!(log.contains("GET /v1/hazards 200"), "{log}");
+        assert!(log.contains("overpass: HTTP 502"), "{log}");
+        assert!(log.contains("overpass: timed out"), "{log}");
+        assert!(log.contains("overpass: data is stale"), "{log}");
+        assert!(log.contains("overpass: no timestamp"), "{log}");
+        for n in ["47.1234567", "8.6234567"] {
+            assert!(!log.contains(n), "{log}");
+        }
+    }
+
+    #[tokio::test]
+    async fn hazards_allow_one_query_in_flight_per_account() {
+        let Some(pool) = sessions::tests::test_pool().await else {
+            return;
+        };
+        let account = sessions::tests::new_account(&pool).await;
+        let token = sessions::tests::new_session(&pool, account).await;
+        let other = sessions::tests::new_account(&pool).await;
+        let other = sessions::tests::new_session(&pool, other).await;
+        let stub = stub_overpass(StatusCode::OK, hazards::tests::answer(60), false).await;
+        let (app, _) = hazards_app(pool, Some(stub.url.clone()), Duration::from_secs(16));
+        let inside = "lat=47.12&lon=8.62";
+        let spawn = |token: &str| {
+            let (app, token) = (app.clone(), token.to_owned());
+            tokio::spawn(async move { get_hazards(&app, Some(&token), inside).await })
+        };
+
+        let first = spawn(&token);
+        until(|| stub.seen.lock().unwrap().len() == 1).await;
+        let (status, body) = get_hazards(&app, Some(&token), inside).await;
+        assert_eq!(
+            (status, error_of(&body)),
+            (StatusCode::TOO_MANY_REQUESTS, "rate_limited".into())
+        );
+        // Auth, validation and coverage still answer first.
+        assert_eq!(
+            get_hazards(&app, None, inside).await.0,
+            StatusCode::UNAUTHORIZED
+        );
+        let bad = get_hazards(&app, Some(&token), "lat=91&lon=8.62").await;
+        assert_eq!(bad.0, StatusCode::BAD_REQUEST);
+        let far = get_hazards(&app, Some(&token), "lat=40&lon=8.62").await;
+        assert_eq!(far.0, StatusCode::NOT_FOUND);
+        // Another account is not held up.
+        let second = spawn(&other);
+        until(|| stub.seen.lock().unwrap().len() == 2).await;
+
+        stub.gate.add_permits(1);
+        assert_eq!(first.await.unwrap().0, StatusCode::OK);
+        assert_eq!(second.await.unwrap().0, StatusCode::OK);
+        assert_eq!(
+            get_hazards(&app, Some(&token), inside).await.0,
+            StatusCode::OK
+        );
+        assert_eq!(stub.seen.lock().unwrap().len(), 3);
+    }
+
+    #[tokio::test]
+    async fn hazards_answer_503_when_every_overpass_slot_is_taken() {
+        let Some(pool) = sessions::tests::test_pool().await else {
+            return;
+        };
+        let stub = stub_overpass(StatusCode::OK, hazards::tests::answer(60), false).await;
+        let (app, served) = hazards_app(
+            pool.clone(),
+            Some(stub.url.clone()),
+            Duration::from_secs(16),
+        );
+        let inside = "lat=47.12&lon=8.62";
+        let mut holders = Vec::new();
+        for _ in 0..hazards::MAX_IN_FLIGHT {
+            let account = sessions::tests::new_account(&pool).await;
+            let token = sessions::tests::new_session(&pool, account).await;
+            let app = app.clone();
+            holders.push(tokio::spawn(async move {
+                get_hazards(&app, Some(&token), inside).await
+            }));
+        }
+        until(|| served.slots.available_permits() == 0).await;
+
+        let account = sessions::tests::new_account(&pool).await;
+        let token = sessions::tests::new_session(&pool, account).await;
+        let (status, body) = get_hazards(&app, Some(&token), inside).await;
+        assert_eq!(
+            (status, error_of(&body)),
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "hazards_unavailable".into()
+            )
+        );
+
+        stub.gate.add_permits(1);
+        for holder in holders {
+            assert_eq!(holder.await.unwrap().0, StatusCode::OK);
+        }
+        // The 503 released this account's in-flight mark: no 429 now.
+        assert_eq!(
+            get_hazards(&app, Some(&token), inside).await.0,
+            StatusCode::OK
+        );
+    }
+
+    #[tokio::test]
+    async fn hazards_keep_the_overpass_slot_when_the_client_hangs_up() {
+        let Some(pool) = sessions::tests::test_pool().await else {
+            return;
+        };
+        let account = sessions::tests::new_account(&pool).await;
+        let token = sessions::tests::new_session(&pool, account).await;
+        let t = Some(token.as_str());
+        let stub = stub_overpass(StatusCode::OK, hazards::tests::answer(60), false).await;
+        let (app, served) = hazards_app(pool, Some(stub.url.clone()), Duration::from_secs(16));
+        let inside = "lat=47.12&lon=8.62";
+        let free = || served.slots.available_permits();
+        assert_eq!(free(), hazards::MAX_IN_FLIGHT);
+
+        // The client drops the request once Overpass has it.
+        tokio::select! {
+            _ = get_hazards(&app, t, inside) => panic!("answered before Overpass did"),
+            _ = until(|| !stub.seen.lock().unwrap().is_empty()) => {}
+        }
+        assert_eq!(free(), hazards::MAX_IN_FLIGHT - 1);
+        // Still in flight for this account, too.
+        assert_eq!(
+            get_hazards(&app, t, inside).await.0,
+            StatusCode::TOO_MANY_REQUESTS
+        );
+
+        stub.gate.add_permits(1);
+        until(|| free() == hazards::MAX_IN_FLIGHT).await;
+        assert_eq!(get_hazards(&app, t, inside).await.0, StatusCode::OK);
     }
 
     async fn character(

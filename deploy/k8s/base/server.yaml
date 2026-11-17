@@ -1,7 +1,8 @@
 # The Esper server (docs/SERVER.md §2, §8). One replica with Recreate: the
 # ceremony and position stores are in memory, so two pods must never overlap.
 # Secrets come from the `esper-server` Secret (ESPER_DB_URL, ESPER_RP_ORIGINS),
-# created on the host, never in git.
+# created on the host, never in git. The `overpass-region` Secret (overpass.yaml)
+# gives the region's .poly; without it /v1/hazards answers 503.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,6 +11,7 @@ metadata:
 data:
   ESPER_RP_ID: esper.media
   ESPER_ASSETLINKS_FILE: /etc/esper/assetlinks.json
+  ESPER_OVERPASS_URL: http://overpass/api/interpreter
   RUST_LOG: info
 ---
 apiVersion: v1
@@ -81,7 +83,17 @@ spec:
             - name: assetlinks
               mountPath: /etc/esper
               readOnly: true
+            - name: overpass-region
+              mountPath: /etc/esper-region
+              readOnly: true
       volumes:
         - name: assetlinks
           configMap:
             name: esper-assetlinks
+        - name: overpass-region
+          secret:
+            secretName: overpass-region
+            items:
+              - key: region.poly
+                path: region.poly
+            optional: true
