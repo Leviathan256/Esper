@@ -38,6 +38,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Esper">
 
+        <!-- Links the app to esper.media for passkeys (Credential Manager prerequisites, step 4). -->
+        <meta-data
+            android:name="asset_statements"
+            android:resource="@string/asset_statements" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
