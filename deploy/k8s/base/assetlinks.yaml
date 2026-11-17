@@ -17,7 +17,7 @@ data:
           "namespace": "android_app",
           "package_name": "com.esper.app",
           "sha256_cert_fingerprints": [
-            "REPLACE:WITH:RELEASE:CERT:SHA256:FINGERPRINT"
+            "EC:9F:46:08:A3:E8:45:F0:84:CF:6C:E7:11:8E:B3:5B:A4:CD:47:21:9E:42:D3:F0:13:FF:08:C1:D9:2B:48:49"
           ]
         }
       }

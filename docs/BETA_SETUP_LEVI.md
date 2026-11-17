@@ -32,10 +32,10 @@ On the server, from a checkout of this repo:
 cd deploy && sudo ./host-setup.sh
 ```
 
-It installs k3s and cert-manager, applies the firewall (Tailscale open; public
-22, 41641/udp, and 80/443 from Cloudflare only), and creates the `esper`
-namespace and its Secrets. It prompts for the Cloudflare token (step 1.3) and
-the passkey origin (step 4; press Enter to set it later). Safe to re-run.
+It installs k3s and cert-manager and creates the `esper` namespace and its
+Secrets. It prompts for the Cloudflare token (step 1.3) and the passkey origin
+(step 4; press Enter to set either later). Safe to re-run. It does not apply
+the firewall yet (#12).
 
 ## 4. Signing fingerprint
 

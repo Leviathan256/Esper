@@ -348,9 +348,15 @@ content change never reaches players.
 ## 9. Deploy topology
 
 **Host:** Levi's own server, Ubuntu, single-node **k3s** (bundled Traefik and
-local-path storage kept, ServiceLB kept so Traefik binds host 80/443).
+local-path storage kept). ServiceLB is **disabled**: it DNATs 80/443 on every
+local address, the Tailscale one included, which would hijack `tailscale serve`.
+Traefik's Service is `ClusterIP` with the host's public IPv4 as its `externalIP`
+instead. Flannel uses `host-gw`, so no VXLAN port is open. The Postgres pod runs
+without AppArmor: on Ubuntu 26.04 containerd's default profile denies signals
+inside a container, which hangs Postgres.
 
-**Firewall (host, `ufw` or nftables, applied by `deploy/host-setup.sh`):**
+**Firewall (host, nftables; not built yet, #12. Until it is, 80/443 accept any
+source and `CF-Connecting-IP` can be spoofed by calling the origin directly):**
 
 | Source | Open |
 |---|---|

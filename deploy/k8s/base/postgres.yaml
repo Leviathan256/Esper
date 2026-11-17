@@ -30,6 +30,13 @@ spec:
         app: postgres
     spec:
       automountServiceAccountToken: false
+      # shortcut: containerd's default AppArmor profile denies signals between
+      # processes in one container on Ubuntu 26.04 (peer label is stacked
+      # "//&unconfined"), which hangs Postgres latches. Drop this once
+      # containerd's profile matches the stacked label.
+      securityContext:
+        appArmorProfile:
+          type: Unconfined
       containers:
         - name: postgres
           image: postgres:18
