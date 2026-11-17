@@ -412,7 +412,7 @@ Never a floating tag.
   `ghcr.io/leviathan256/esper-server:<sha>` with `GITHUB_TOKEN` (`packages: write`).
 - Job 3 `deploy`: if `secrets.TS_OAUTH_CLIENT_ID` is empty, write "deploy
   skipped: no Tailscale credentials" to the summary and exit 0. Else join the
-  tailnet (`tailscale/github-action`, tag `tag:ci`), write the kubeconfig from
+  tailnet (`tailscale/github-action`, tag `tag:esper-ci`), write the kubeconfig from
   `secrets.ESPER_KUBECONFIG` (server address = the host's tailnet name),
   `kustomize edit set image` to `<sha>`, `kubectl apply -k deploy/k8s/overlays/prod`,
   `kubectl -n esper rollout status deploy/esper-server`, then
