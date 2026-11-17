@@ -19,9 +19,9 @@ The zone already uses Cloudflare's nameservers.
 
 ## 2. Tailscale access for CI
 
-1. Tailscale admin console, Access controls: add a `tag:ci` tag owned by you,
-   and allow `tag:ci` to reach `HOST` on port 6443.
-2. Settings, OAuth clients, Generate: scope `auth_keys` (write), tag `tag:ci`.
+1. Tailscale admin console, Access controls: add a `tag:esper-ci` tag owned by you,
+   and allow `tag:esper-ci` to reach `HOST` on port 6443.
+2. Settings, OAuth clients, Generate: scope `auth_keys` (write), tag `tag:esper-ci`.
    Keep the client ID and secret for step 6.
 
 ## 3. Bootstrap the server
