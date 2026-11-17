@@ -61,6 +61,16 @@ impl ApiError {
         "character_exists",
         "You already have a character.",
     );
+    pub const OUTSIDE_COVERAGE: Self = Self::new(
+        StatusCode::NOT_FOUND,
+        "outside_coverage",
+        "Encounters aren't available in this area yet.",
+    );
+    pub const HAZARDS_UNAVAILABLE: Self = Self::new(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "hazards_unavailable",
+        "Can't check the area is safe right now.",
+    );
     pub const INTERNAL: Self = Self::new(
         StatusCode::INTERNAL_SERVER_ERROR,
         "internal",

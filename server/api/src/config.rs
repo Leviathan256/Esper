@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use axum::http::Uri;
 use webauthn_rs::prelude::Url;
 
 pub struct Config {
@@ -12,6 +13,10 @@ pub struct Config {
     pub rp_origins: Vec<Url>,
     pub content_dir: String,
     pub assetlinks_file: PathBuf,
+    /// Unset: `/v1/hazards` answers 503.
+    pub overpass_url: Option<Uri>,
+    /// The region's Geofabrik `.poly`; a missing file also means 503.
+    pub hazard_region_poly: PathBuf,
 }
 
 impl Config {
@@ -35,6 +40,12 @@ impl Config {
             content_dir: get("ESPER_CONTENT_DIR").unwrap_or_else(|| "content".into()),
             assetlinks_file: get("ESPER_ASSETLINKS_FILE")
                 .unwrap_or_else(|| "/etc/esper/assetlinks.json".into())
+                .into(),
+            overpass_url: get("ESPER_OVERPASS_URL")
+                .map(|u| u.parse().map_err(|e| format!("ESPER_OVERPASS_URL: {e}")))
+                .transpose()?,
+            hazard_region_poly: get("ESPER_HAZARD_REGION_POLY")
+                .unwrap_or_else(|| "/etc/esper-region/region.poly".into())
                 .into(),
         })
     }
@@ -94,5 +105,10 @@ mod tests {
         .unwrap();
         assert_eq!(c.rp_id, "esper.media");
         assert_eq!(c.bind, "0.0.0.0:8080");
+        assert!(c.overpass_url.is_none());
+        assert_eq!(
+            c.hazard_region_poly,
+            PathBuf::from("/etc/esper-region/region.poly")
+        );
     }
 }

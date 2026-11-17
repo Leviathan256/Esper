@@ -155,20 +155,24 @@ Until then: keep the identifying User-Agent osmdroid is configured with, honour
 cache headers, and **do not add prefetch, bulk download, or offline-area
 features against the OSM servers.**
 
-**Encounter placement safety check.** Before seeding, the app asks the public
-Overpass API for OpenStreetMap roads, railways, water, coastline, buildings and
+**Encounter placement safety check.** Before seeding, the app asks the Esper
+server for OpenStreetMap roads, railways, water, coastline, buildings and
 `access=private` land within 40 m of the leash centre (one request per seeding,
-never prefetched). `GeodataSafetyChecker` rejects any candidate inside or too
-close to one: roads and railways by carriageway half-width (or the `width` tag)
-plus 3 m, water by 2 m, buildings and private land by 1 m; footpaths, tunnels
-and `access=no` + `foot=yes` paths are not hazards. The tag policy lives in
-`OverpassHazards`. It **fails closed**: no geodata (offline, Overpass error or
-timeout) means no new encounter, never a blind one. Known limits: OSM coverage
-is only as good as local mapping; only the encounter anchor is checked, not
+never prefetched). The server answers from its own copy of OpenStreetMap for
+one **coverage region**, refreshed daily. `GeodataSafetyChecker` rejects any
+candidate inside or too close to a hazard: roads and railways by carriageway
+half-width (or the `width` tag) plus 3 m, water by 2 m, buildings and private
+land by 1 m; footpaths, tunnels and `access=no` + `foot=yes` paths are not
+hazards. The tag policy lives in `OverpassHazards`. It **fails closed**: no
+geodata (offline, server or map error, timeout) means no new encounter, never a
+blind one. **Encounters only spawn inside the coverage region**, at least 100 m
+in from its edge: anywhere else the game says "Encounters aren't available in
+this area yet." and seeds nothing, because missing map data would look exactly
+like safe ground. Known limits: OSM coverage is only as good as local mapping,
+and the copy can be a day behind; only the encounter anchor is checked, not
 every board cell (acceptable because **no cell ever has to be physically
-walked to** — combat movement is entirely on-screen); and the public Overpass
-instance carries the same policy risk as the public tiles, so it should move to
-a self-hosted instance alongside the tile source before scale.
+walked to** — combat movement is entirely on-screen); and players outside the
+coverage region get no encounters at all.
 
 **Movement.** A radius of allowed territory travels with the player. The avatar
 moves freely within it; the player's GPS position sets where the circle is
@@ -188,9 +192,12 @@ overwritten by the next one, dropped 10 minutes after your last update, on
 sign-out, and whenever the server restarts. It is never written to the database
 or to logs, and never shared outside the game. Today it exists so the server can
 place you in the shared world; later steps use it for showing you to players
-within about 300 m, movement checks and territory. If the player declines, the
+within about 300 m, movement checks and territory. Before an encounter is
+seeded, the app also sends the centre of your movement radius to the Esper
+server once, so it can check the ground there is safe; the server looks it up
+in its own copy of the map and keeps nothing. If the player declines, the
 game stays playable — the radius anchors to the map view instead, and the server
-receives no position at all — because no player may be required to grant a permission, or take a
+receives no position at all, only the map's centre for the safety check — because no player may be required to grant a permission, or take a
 walk, in order to keep playing.
 
 Beyond the moving radius, the avatar may also travel to, from, and within:
@@ -503,7 +510,7 @@ character and not with the job instance.
 | Titles | not started | Attuned like land; fade on inactivity, claimable by another |
 | Activity tracking | not started | Encounter counters per H3 cell at the player's real position, trusted clock, no raw traces |
 | Teleportation | not started | Low cost, between allowed regions and into active battles; doubles as reconnect |
-| Encounter seeding | MVP | Per-player, on-device, 6–10 m from the radius centre, checked against OSM roads/rail/water/private land (fails closed). Shared-vs-per-player placement still open |
+| Encounter seeding | MVP | Per-player, on-device, 6–10 m from the radius centre, checked against OSM roads/rail/water/private land from the server's own map copy; coverage region only (fails closed). Shared-vs-per-player placement still open |
 | Job pipeline | MVP | Schema doc → `/content` data → CI validation with cycle detection → loader ignoring unknown fields → migration hook |
 | Character sheet / stats | MVP | D&D ability scores + job-derived HP/AC/attack/damage/move |
 | Save / persistence | MVP | Character saved on the Esper server (Postgres), tied to your passkey account; `schemaVersion` + migration chain from day one; an on-device save from before the server existed is uploaded once on first sign-in and then deleted from the phone |

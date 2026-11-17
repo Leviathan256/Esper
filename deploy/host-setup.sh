@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Esper host bootstrap (docs/SERVER.md §9): pinned k3s and cert-manager, the
 # `esper` namespace and its Secrets. Idempotent; never writes a secret to git.
-#   cd deploy && sudo ./host-setup.sh [--rp-origins 'android:apk-key-hash:...']
+#   cd deploy && sudo ./host-setup.sh [--rp-origins 'android:apk-key-hash:...'] \
+#     [--overpass-region <Geofabrik path, e.g. europe/monaco>]
 # shortcut: no firewall yet (#12). 80/443 are open to everyone, not only
 # Cloudflare, and 6443/10250 answer publicly (both need cluster credentials).
 # Add the Cloudflare-only nftables prerouting rules before the beta is public.
@@ -12,9 +13,11 @@ K3S_VERSION="v1.37.2+k3s1"
 CERT_MANAGER_VERSION="v1.21.3"
 
 RP_ORIGINS=""
+OVERPASS_REGION=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --rp-origins) RP_ORIGINS="${2:?--rp-origins needs a value}"; shift 2 ;;
+    --overpass-region) OVERPASS_REGION="${2:?--overpass-region needs a value}"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -106,6 +109,44 @@ if [[ -z "$(secret_value cert-manager cloudflare-api-token api-token || true)" ]
   else
     echo "warning: no Cloudflare token; the esper.media certificate will not be issued until you re-run" >&2
   fi
+fi
+
+# The encounter map region (docs/adr/0003-self-hosted-overpass.md). Kept out of
+# git: it says roughly where the players are.
+if [[ -z "$OVERPASS_REGION" && -z "$(secret_value esper overpass-region OVERPASS_PLANET_URL || true)" && -t 0 ]]; then
+  read -rp "Encounter map region, a Geofabrik path such as europe/monaco (Enter to skip): " OVERPASS_REGION
+fi
+if [[ -n "$OVERPASS_REGION" ]]; then
+  [[ "$OVERPASS_REGION" =~ ^[a-z0-9-]+(/[a-z0-9-]+)*$ ]] || { echo "bad region: $OVERPASS_REGION" >&2; exit 2; }
+  base="https://download.geofabrik.de/${OVERPASS_REGION}"
+  poly="$(curl -fsSL "${base}.poly")" || { echo "no such Geofabrik region: $OVERPASS_REGION" >&2; exit 1; }
+  # An outline over another region's map data treats ground with no data as
+  # safe. Order keeps every interruption safe and every re-run convergent:
+  # Overpass is stopped while the Secret changes (hazards answer 503), the
+  # server restarts before Overpass returns (it reads region.poly only at
+  # startup), and Overpass's init container re-imports the database when it
+  # was built for another region (k8s/base/overpass.yaml).
+  if kubectl -n esper get statefulset overpass >/dev/null 2>&1; then
+    kubectl -n esper scale statefulset overpass --replicas=0
+    if kubectl -n esper get pod overpass-0 >/dev/null 2>&1; then
+      kubectl -n esper wait --for=delete pod/overpass-0 --timeout=5m
+    fi
+  fi
+  kubectl -n esper create secret generic overpass-region --dry-run=client -o yaml \
+    --from-literal=OVERPASS_PLANET_URL="${base}-latest.osm.pbf" \
+    --from-literal=OVERPASS_DIFF_URL="${base}-updates/" \
+    --from-file=region.poly=<(printf '%s\n' "$poly") | kubectl apply -f -
+  if kubectl -n esper get deploy esper-server >/dev/null 2>&1; then
+    kubectl -n esper rollout restart deploy/esper-server
+    kubectl -n esper rollout status deploy/esper-server --timeout=5m
+  fi
+  if kubectl -n esper get statefulset overpass >/dev/null 2>&1; then
+    kubectl -n esper scale statefulset overpass --replicas=1
+  else
+    kubectl apply -f "$(dirname "$0")/k8s/base/overpass.yaml"
+  fi
+elif [[ -z "$(secret_value esper overpass-region OVERPASS_PLANET_URL || true)" ]]; then
+  echo "warning: no encounter map region; encounters stay off until you re-run with --overpass-region" >&2
 fi
 
 echo

@@ -162,7 +162,9 @@ kept is in `docs/GAME_DESIGN.md` ("Why the app asks for location"). Why it is
 built this way: `docs/adr/`.
 
 It runs on single-node k3s on Levi's own server, behind Cloudflare at
-`esper.media`, with Postgres in the cluster. `deploy/k8s/` holds the Kustomize
+`esper.media`, with Postgres in the cluster and a self-hosted Overpass API that
+holds the map data for the encounter safety check (one region, set at deploy
+time and kept out of git). `deploy/k8s/` holds the Kustomize
 manifests and `deploy/host-setup.sh` bootstraps the host; `pages/` holds the
 `assetlinks.json` template and `fingerprint.sh`. `deploy-server.yml` tests the
 server, pushes a multi-arch image to GHCR and applies the manifests over

@@ -1,0 +1,199 @@
+# Self-hosted Overpass API (docs/adr/0003-self-hosted-overpass.md): roads,
+# railways, water and private land for encounter safety checks. Only the
+# esper-server pod calls it; there is no Ingress, so it is never public.
+#
+# The region is not in git: `deploy/host-setup.sh --overpass-region <geofabrik
+# path>` creates the `overpass-region` Secret (extract URL, update URL and the
+# region's .poly, which the server also mounts to refuse points outside it).
+# Change the region only by re-running that script: it stops Overpass, writes
+# the Secret, restarts the server and starts Overpass, whose init container
+# then re-imports the database for the new region.
+apiVersion: v1
+kind: Service
+metadata:
+  name: overpass
+  namespace: esper
+spec:
+  selector:
+    app: overpass
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Area rules: is_in (and so pivot.inside in the hazard query) only finds a point
+# inside polygons that have an area. The image's stock rules make areas only
+# from named multipolygon relations and boundaries, so a player more than 40 m
+# inside an unnamed lake, or any water, reservoir, military or private land
+# mapped as a closed way, would get no hazard. These rules add exactly the
+# hazard tags OverpassHazards classifies, named or not. Buildings stay out:
+# millions of footprints, and being inside one is not a danger.
+# Changing this file: bump rules-version in the StatefulSet template.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: overpass-area-rules
+  namespace: esper
+data:
+  areas.osm3s: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <osm-script timeout="86400" element-limit="4294967296">
+    <union>
+      <query type="relation"><has-kv k="type" v="multipolygon"/><has-kv k="name"/></query>
+      <query type="relation"><has-kv k="type" v="boundary"/><has-kv k="name"/></query>
+      <query type="relation"><has-kv k="admin_level"/><has-kv k="name"/></query>
+      <query type="relation"><has-kv k="postal_code"/></query>
+      <query type="relation"><has-kv k="addr:postcode"/></query>
+      <query type="relation"><has-kv k="type" v="multipolygon"/><has-kv k="natural" regv="^(water|wetland)$"/></query>
+      <query type="relation"><has-kv k="type" v="multipolygon"/><has-kv k="landuse" regv="^(reservoir|basin|military|railway)$"/></query>
+      <query type="relation"><has-kv k="type" v="multipolygon"/><has-kv k="waterway" v="riverbank"/></query>
+      <query type="relation"><has-kv k="type" v="multipolygon"/><has-kv k="access" regv="^(private|no)$"/></query>
+    </union>
+    <foreach into="pivot">
+      <union>
+        <recurse type="relation-way" from="pivot"/>
+        <recurse type="way-node"/>
+      </union>
+      <make-area pivot="pivot" return-area="no"/>
+    </foreach>
+    <union>
+      <query type="way"><has-kv k="natural" regv="^(water|wetland)$"/></query>
+      <query type="way"><has-kv k="landuse" regv="^(reservoir|basin|military|railway)$"/></query>
+      <query type="way"><has-kv k="waterway" v="riverbank"/></query>
+      <query type="way"><has-kv k="access" regv="^(private|no)$"/><has-kv k="highway" modv="not" regv="."/></query>
+    </union>
+    <foreach into="pivot">
+      <union>
+        <recurse type="way-node" from="pivot"/>
+      </union>
+      <make-area pivot="pivot" return-area="no"/>
+    </foreach>
+    </osm-script>
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: overpass
+  namespace: esper
+spec:
+  serviceName: overpass
+  replicas: 1
+  selector:
+    matchLabels:
+      app: overpass
+  template:
+    metadata:
+      labels:
+        app: overpass
+      annotations:
+        esper.media/rules-version: "1"
+    spec:
+      automountServiceAccountToken: false
+      # supervisord signals its children; see postgres.yaml for the AppArmor bug.
+      securityContext:
+        appArmorProfile:
+          type: Unconfined
+      initContainers:
+        # 1. Map data must match the Secret's region: the server's outline comes
+        #    from the same Secret, and an outline over another region's data
+        #    treats ground with no data as safe. /db/region_url records what the
+        #    database was built from; a different region wipes it, so the
+        #    entrypoint imports again. (A database from before the marker
+        #    existed is assumed to match.)
+        # 2. A fresh import reads the area rules from /app/etc/rules (mounted
+        #    below); an existing database's area loop reads its own copy, so
+        #    refresh that too.
+        - name: prepare-db
+          image: wiktorn/overpass-api:v0.7.62.11
+          envFrom:
+            - secretRef:
+                name: overpass-region
+          command:
+            - sh
+            - -ec
+            - |
+              if [ -f /db/region_url ] && [ "$(cat /db/region_url)" != "$OVERPASS_PLANET_URL" ]; then
+                echo "region changed: deleting the map database to import it again"
+                find /db -mindepth 1 -delete
+              fi
+              # An import that died midway (e.g. OOM-killed) leaves a half-built database.
+              if [ ! -f /db/init_done ] && [ -e /db/db ]; then
+                echo "incomplete import: starting over"
+                find /db -mindepth 1 -delete
+              fi
+              printf '%s\n' "$OVERPASS_PLANET_URL" > /db/region_url
+              if [ -d /db/db/rules ]; then
+                cp /rules/areas.osm3s /db/db/rules/areas.osm3s
+                chown overpass:overpass /db/db/rules/areas.osm3s
+              fi
+          volumeMounts:
+            - name: db
+              mountPath: /db
+            - name: area-rules
+              mountPath: /rules
+              readOnly: true
+      containers:
+        - name: overpass
+          # Runs as root: supervisord starts nginx and fcgiwrap, then drops to the overpass user.
+          image: wiktorn/overpass-api:v0.7.62.11
+          envFrom:
+            - secretRef:
+                name: overpass-region
+          env:
+            - name: OVERPASS_MODE
+              value: init
+            - name: OVERPASS_META
+              value: "no"
+            # Geofabrik ships .osm.pbf; the importer reads .osm.bz2.
+            - name: OVERPASS_PLANET_PREPROCESS
+              value: mv /db/planet.osm.bz2 /db/planet.osm.pbf && osmium cat -o /db/planet.osm.bz2 /db/planet.osm.pbf && rm /db/planet.osm.pbf
+            # The default (16) buffers enough to be OOM-killed at the 3 Gi limit
+            # during a regional import; 4 trades import speed for RAM.
+            - name: OVERPASS_FLUSH_SIZE
+              value: "4"
+            # is_in, used to find the area a point is inside, needs areas.
+            - name: OVERPASS_USE_AREAS
+              value: "true"
+            - name: OVERPASS_STOP_AFTER_INIT
+              value: "false"
+            # Geofabrik publishes one diff a day; checking hourly is cheap.
+            - name: OVERPASS_UPDATE_SLEEP
+              value: "3600"
+            # Every query comes from the server pod's one IP, so no per-IP limit;
+            # the server caps concurrency itself.
+            - name: OVERPASS_MAX_TIMEOUT
+              value: "30s"
+          ports:
+            - name: http
+              containerPort: 80
+          # No liveness probe: the first import runs for many minutes before nginx starts.
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: http
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 3Gi
+          volumeMounts:
+            - name: db
+              mountPath: /db
+            - name: area-rules
+              mountPath: /app/etc/rules/areas.osm3s
+              subPath: areas.osm3s
+              readOnly: true
+      volumes:
+        - name: area-rules
+          configMap:
+            name: overpass-area-rules
+  volumeClaimTemplates:
+    - metadata:
+        name: db
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi

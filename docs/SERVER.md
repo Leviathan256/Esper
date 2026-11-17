@@ -28,6 +28,7 @@ Everything under "Later steps" is design only.
 | Progress | Client-reported: app `PUT`s the state after a victory | Until server combat (step 2 of §14). `shortcut:` comment in code. |
 | Credential Manager | `androidx.credentials:credentials:1.3.0` only, no Play Services | Passkey sign-in needs **Android 14+**. See §10. |
 | Hosting | k3s on Levi's server, Postgres 18 in-cluster, Traefik + cert-manager, Cloudflare proxy | ADR-0001. |
+| Encounter hazards | Overpass in-cluster, one Geofabrik region updated daily; the app asks `GET /v1/hazards` | Public Overpass instances are saturated. ADR-0003. |
 
 ---
 
@@ -35,7 +36,7 @@ Everything under "Later steps" is design only.
 
 ```
 Android app ─HTTPS─▶ Cloudflare (proxy, Full strict) ─HTTPS─▶ Traefik (k3s, :443) ─▶ esper-server pod :8080 ─sqlx─▶ postgres-0 (StatefulSet)
-   │
+   │                                                                                              └─HTTP─▶ overpass-0 (StatefulSet, ClusterIP only; /v1/hazards)
    │  androidx.credentials ◀── RP ID esper.media ──▶ https://esper.media/.well-known/assetlinks.json (served by esper-server)
    │
    └─HTTPS─▶ GitHub Releases "nightly" (UpdateChecker, unchanged, independent of the server)
@@ -139,9 +140,9 @@ Territory = H3 cell as `bigint`.
 
 ## 5. API contract
 
-**Unchanged from the Kotlin server**, plus one read-only route
-(`/.well-known/assetlinks.json`). All other routes except `/healthz` are under
-`/v1`. Bodies are JSON (`Content-Type: application/json`). Authenticated
+**Unchanged from the Kotlin server**, plus two read-only routes
+(`/.well-known/assetlinks.json`, `/v1/hazards`). All other routes except
+`/healthz` are under `/v1`. Bodies are JSON (`Content-Type: application/json`). Authenticated
 routes take `Authorization: Bearer <token>`.
 
 ### Errors
@@ -164,9 +165,11 @@ Every non-2xx response has this body:
 | 401 | `unauthorized` | missing, unknown or expired token. **App clears its token and returns to sign-in on any 401.** |
 | 404 | `no_character` | `GET /v1/character` before creation |
 | 404 | `not_found` | `/.well-known/assetlinks.json` when `ESPER_ASSETLINKS_FILE` cannot be read |
+| 404 | `outside_coverage` | `/v1/hazards` at a point outside the coverage region or within 100 m of its edge |
 | 409 | `character_exists` | second `POST /v1/character` |
-| 429 | `rate_limited` | ceremony routes, 20/min per client IP |
+| 429 | `rate_limited` | ceremony routes, 20/min per client IP; `/v1/hazards`, a second request while one is in flight for the account |
 | 503 | `unavailable` | `/healthz` DB check failed |
+| 503 | `hazards_unavailable` | `/v1/hazards` not configured, Overpass failed or stale, or no query slot within 2 s (see Hazards below) |
 
 ### Routes
 
@@ -183,6 +186,7 @@ Every non-2xx response has this body:
 | `POST /v1/character` | bearer | `{"name": "…", "startingJobId": "…"}` | `201` body = state JSON |
 | `PUT /v1/character` | bearer | `CharacterState` JSON | `204` |
 | `POST /v1/location` | bearer | `{"lat": 0.0, "lon": 0.0, "accuracyM": 0.0}` | `204` |
+| `GET /v1/hazards?lat=<f64>&lon=<f64>` | bearer | – | `200` the Overpass JSON, unchanged, `application/json`; `400` bad or missing `lat`/`lon` |
 | `GET /v1/ws` | bearer header | WebSocket upgrade | see §7 |
 
 `publicKey` is the **inner** object: webauthn-rs serializes
@@ -207,6 +211,37 @@ JSON string value; the server parses it into `RegisterPublicKeyCredential` /
   ships and PUT goes away`.
 - `GET` returns `encode(decode(stored))` (`jsonb` reorders keys; re-encoding
   also migrates old rows).
+
+### Hazards (`GET /v1/hazards`)
+
+The map data for the encounter safety check (ADR-0003). The app never talks to
+Overpass.
+
+- `lat`/`lon` checked like `/v1/location` (§7: ranges, NaN, infinities); bad or
+  missing → 400.
+- The server builds the QL: what `OverpassHazards.query` builds for a fixed
+  **40 m** radius (`is_in` + the seven tag filters × `way`/`rel` ×
+  `around`/`pivot.inside`, `[out:json][timeout:15]`, `out geom`). The client
+  cannot send QL or a radius.
+- Coverage: the region's Geofabrik `.poly`, loaded at startup (§8). A point is
+  covered only if it is inside the polygon (not in a hole) **and ≥ 100 m from
+  every edge**, so the 40 m query stays inside the region outline. Else
+  `404 outside_coverage`. Missing data would read as "no hazards", so this
+  fails closed.
+- No `.poly` or no `ESPER_OVERPASS_URL` → `503 hazards_unavailable`.
+- Overpass non-2xx, 16 s timeout, non-JSON body, a `remark` containing
+  `error`, or map data or areas older than 7 days (`osm3s.timestamp_osm_base`,
+  `timestamp_areas_base`; missing or malformed counts as old) →
+  `503 hazards_unavailable`, never a partial result.
+- At most **4** Overpass queries in flight; no slot within 2 s →
+  `503 hazards_unavailable`. A slot stays taken until Overpass answers, even if
+  the client hangs up. 2 s + 16 s keeps every answer inside the app's 20 s read
+  timeout.
+- One request in flight per account; a second concurrent one →
+  `429 rate_limited`.
+- `200`: Overpass's JSON body unchanged; the app parses it with
+  `OverpassHazards.parse`.
+- The position is never logged (the request log omits query strings).
 
 ---
 
@@ -302,6 +337,9 @@ the peer address.
   overwritten by the next fix, removed after **10 minutes** without one, on
   logout, and on restart. It is **never** written to Postgres, logs, or anywhere
   else.
+- Before seeding an Encounter the app sends the leash centre once to
+  `GET /v1/hazards` (§5). The server passes it to the in-cluster Overpass and
+  does not keep or log it.
 - `received_at` is server time. Client time is not accepted.
 - Validation (`location::validate`, pure): `lat ∈ [-90, 90]`, `lon ∈ [-180, 180]`,
   `accuracyM ∈ [0, 10000]`, finite. Otherwise `400 invalid_fix` (HTTP) or `err`
@@ -341,6 +379,8 @@ Environment variables only. In the cluster, non-secret values come from the
 | `ESPER_RP_ORIGINS` | (required, comma list) | `android:apk-key-hash:<b64url>[,…]` |
 | `ESPER_CONTENT_DIR` | `content` | directory holding `jobs/` and `monsters/`; baked into the image |
 | `ESPER_ASSETLINKS_FILE` | `/etc/esper/assetlinks.json` | mounted from the `esper-assetlinks` ConfigMap |
+| `ESPER_OVERPASS_URL` | unset (`/v1/hazards` answers 503) | the ConfigMap sets `http://overpass/api/interpreter` |
+| `ESPER_HAZARD_REGION_POLY` | `/etc/esper-region/region.poly` | the coverage region's Geofabrik `.poly`, mounted from the `overpass-region` Secret (`optional: true`, so the server starts without it; missing = 503). Read at startup only. |
 | `RUST_LOG` | `info` | |
 
 Content loads once at startup; a validation error fails startup, so a bad
@@ -354,9 +394,10 @@ content change never reaches players.
 local-path storage kept). ServiceLB is **disabled**: it DNATs 80/443 on every
 local address, the Tailscale one included, which would hijack `tailscale serve`.
 Traefik's Service is `ClusterIP` with the host's public IPv4 as its `externalIP`
-instead. Flannel uses `host-gw`, so no VXLAN port is open. The Postgres pod runs
-without AppArmor: on Ubuntu 26.04 containerd's default profile denies signals
-inside a container, which hangs Postgres.
+instead. Flannel uses `host-gw`, so no VXLAN port is open. The Postgres and
+Overpass pods run without AppArmor: on Ubuntu 26.04 containerd's default
+profile denies signals inside a container, which hangs Postgres and Overpass's
+supervisord.
 
 **Firewall (host, nftables; not built yet, #12. Until it is, 80/443 accept any
 source and `CF-Connecting-IP` can be spoofed by calling the origin directly):**
@@ -381,9 +422,10 @@ issuer and the firewall are the only Cloudflare-specific parts.
 | Path | Holds |
 |---|---|
 | `base/namespace.yaml` | `esper` |
-| `base/server.yaml` | `Deployment` (1 replica, `Recreate`, image `ghcr.io/leviathan256/esper-server:<sha>`, liveness + readiness `GET /healthz`, non-root, read-only root fs), `Service`, `ConfigMap esper-server` |
+| `base/server.yaml` | `Deployment` (1 replica, `Recreate`, image `ghcr.io/leviathan256/esper-server:<sha>`, liveness + readiness `GET /healthz`, non-root, read-only root fs, Secret `overpass-region` mounted optional at `/etc/esper-region`), `Service`, `ConfigMap esper-server` |
 | `base/ingress.yaml` | standard `networking.k8s.io/v1` `Ingress` for `esper.media`, TLS secret from cert-manager. **No Traefik CRDs.** |
 | `base/postgres.yaml` | `StatefulSet` `postgres:18` (pinned major), 1 replica, `PersistentVolumeClaim` 10 Gi (local-path), `Service postgres` (ClusterIP only) |
+| `base/overpass.yaml` | `StatefulSet overpass` (`wiktorn/overpass-api`, pinned, 1 replica, env from Secret `overpass-region`, imports the extract once, then applies Geofabrik's daily diffs; PVC `db` 20 Gi, so `db-overpass-0`), `Service overpass` (ClusterIP :80, **no Ingress**: only the server calls it) |
 | `base/backup.yaml` | `CronJob` nightly `pg_dump -Fc` to a hostPath `/var/backups/esper`, keeps 14 days |
 | `base/assetlinks.yaml` | `ConfigMap esper-assetlinks` holding `assetlinks.json` |
 | `base/cert-issuer.yaml` | `ClusterIssuer letsencrypt-dns` (Cloudflare DNS-01) |
@@ -397,11 +439,19 @@ Secrets are **never in git**. `deploy/host-setup.sh` creates them once with
 | `esper-server` | `esper` | `ESPER_DB_URL`, `ESPER_RP_ORIGINS` |
 | `postgres` | `esper` | `password` (the one in `ESPER_DB_URL`) |
 | `cloudflare-api-token` | `cert-manager` (a `ClusterIssuer` reads its Secret there) | `api-token` |
+| `overpass-region` | `esper` | `OVERPASS_PLANET_URL`, `OVERPASS_DIFF_URL`, `region.poly` (the coverage region; ADR-0003) |
 
 **`deploy/host-setup.sh`** (idempotent, run once with `sudo`): install k3s
 (pinned version), install cert-manager (pinned manifest), apply the firewall and
-the Cloudflare-range timer, create the namespace and the three Secrets (prompts
-for the token and RP origins; generates the Postgres password).
+the Cloudflare-range timer, create the namespace and the four Secrets (prompts
+for the token, RP origins and map region; generates the Postgres password).
+`--overpass-region <Geofabrik path>` (e.g. `europe/monaco`) fetches that
+region's `.poly` from Geofabrik and writes `overpass-region`; the region is never
+in git. With a region it stops Overpass, writes the Secret, restarts the server
+(which reads `region.poly` only at startup) and starts Overpass again; Overpass's
+init container records which region its database was built from
+(`/db/region_url`) and wipes it for a different one, so a region change
+re-imports by itself. Every step is safe to interrupt and re-run.
 
 Postgres major upgrades are deliberate: dump, bump the pinned major, restore.
 Never a floating tag.
@@ -507,6 +557,16 @@ is a recovery-code sign-in. `minSdk` stays 26.
   `/v1/location` lat 91 → 400, valid → 204; `/.well-known/assetlinks.json` 200;
   WebSocket without token refused, `loc` → `ack`; rate-limit keys on
   `CF-Connecting-IP`.
+- hazards, pure: `.poly` parsing (errors never echo file contents);
+  inside/outside; a point < 100 m from an edge is outside; a point in a hole is
+  outside; the query text; Overpass timestamps (leap years, impossible dates).
+- `/v1/hazards` against a stub Overpass: body passed through unchanged; no
+  token → 401; bad lat → 400; outside the region → 404 `outside_coverage`;
+  upstream non-2xx, timeout, error `remark`, stale or missing timestamp → 503
+  `hazards_unavailable`, with no position in the log; a second request from one
+  account while the first is in flight → 429; every slot taken → 503, and the
+  account is not left marked busy; a client that hangs up keeps its slot until
+  Overpass answers.
 
 Not unit-tested: a full passkey ceremony (no software authenticator). Verified
 on device (`BETA_SETUP_LEVI.md` §9).
@@ -571,3 +631,32 @@ server, so it comes straight after the port.
 - If Cloudflare changes its IP ranges before the weekly refresh, new edge IPs
   are refused until it runs.
 - Android < 14 cannot sign in (§10).
+- Encounters exist only inside the coverage region, ≥ 100 m from its edge
+  (ADR-0003). Everywhere else players get none.
+- The first Overpass import, and every re-import after a region change, takes
+  many minutes on this host; `/v1/hazards` answers 503 until it finishes. Data
+  is normally about a day old (Geofabrik's daily diffs); if the update loop
+  stalls, the server answers 503 once it is 7 days old.
+- An outline over another region's map data would treat ground with no data as
+  safe. The server's outline and Overpass's data both come from the
+  `overpass-region` Secret: Overpass re-imports when its database was built for
+  another region, and `host-setup.sh` restarts the server before Overpass
+  returns (§9).
+- shortcut: the server's `region.poly` is a snapshot from the last
+  `host-setup.sh` run, while Geofabrik's daily diffs follow its current clip
+  outline. If Geofabrik moves a region's outline inward, a strip near the edge
+  can pass the coverage check with its data gone. Re-run
+  `host-setup.sh --overpass-region <same path>` (no re-import) to refresh it;
+  automate a daily compare if players live near the edge.
+- shortcut: Geofabrik keeps a way only if one of its nodes is inside the
+  outline, so a long straight road or railway segment cutting a corner of the
+  outline, with no node inside, is missing within ~140 m of that edge.
+- `is_in` needs Overpass areas. The image generates them during the first import,
+  before nginx starts, so readiness never reports a database without areas; a
+  background loop keeps them current afterwards. The stock rules only make areas
+  from *named* multipolygon relations, which left the middle of an unnamed lake,
+  or of any water, military or private land mapped as a closed way, reading as
+  safe. `overpass.yaml` replaces them (ConfigMap `overpass-area-rules`) with
+  rules that also cover every hazard tag `OverpassHazards` classifies, named or
+  not. Buildings are left out: millions of footprints, and being inside one is
+  not a danger, so the middle of a building over 80 m across reads as open ground.

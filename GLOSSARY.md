@@ -10,6 +10,10 @@ A location-based RPG on the real map: players fight tactical encounters where th
 A fight on a hex board pinned to the real-world spot where it was seeded; it stays there for its whole life, wherever the players' bodies go.
 _Avoid_: battle, fight, combat instance
 
+**Coverage region**:
+The one area of the real map the server holds map data for, so the only place an Encounter can be seeded, and only at least 100 m inside its edge. Elsewhere no Encounter spawns.
+_Avoid_: region alone (an allowed region is where the avatar may travel), service area, supported area
+
 **Flee**:
 A character leaving an Encounter before it ends, at any moment and on any turn; it never fails. Short of the Encounter ending, it is the only way out: a character who does not Flee stays in the Encounter.
 _Avoid_: run away, retreat, escape, leash

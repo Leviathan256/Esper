@@ -64,6 +64,15 @@ class ServerClient(baseUrl: String, private val token: String?) {
             JSONObject().put("lat", lat).put("lon", lon).put("accuracyM", accuracyM).toString(),
         ).map { }
 
+    /**
+     * Overpass JSON for the roads, water and private land around a point, passed
+     * through unchanged by the server. Fails with [ServerError] code
+     * `outside_coverage` (404) outside the imported region. The coordinates go
+     * through Double.toString, which always uses '.', whatever the phone's locale.
+     */
+    suspend fun hazards(lat: Double, lon: Double): Result<String> =
+        request("GET", "/v1/hazards?lat=$lat&lon=$lon").mapCatching { it.orEmpty() }
+
     private suspend fun verify(path: String, ceremonyId: String, responseJson: String): Result<String> =
         request(
             "POST",

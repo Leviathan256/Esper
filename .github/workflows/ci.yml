@@ -52,6 +52,11 @@ jobs:
           key-alias: ${{ secrets.ESPER_KEY_ALIAS }}
           key-password: ${{ secrets.ESPER_KEY_PASSWORD }}
 
+      # The APK build compiles only main sources; this runs app/src/test.
+      # Debug variant: no signing key needed.
+      - name: App unit tests
+        run: gradle :app:testDebugUnitTest --console=plain
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

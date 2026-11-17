@@ -29,13 +29,36 @@ The zone already uses Cloudflare's nameservers.
 On the server, from a checkout of this repo:
 
 ```bash
-cd deploy && sudo ./host-setup.sh
+cd deploy && sudo ./host-setup.sh --overpass-region europe/monaco
 ```
 
 It installs k3s and cert-manager and creates the `esper` namespace and its
 Secrets. It prompts for the Cloudflare token (step 1.3) and the passkey origin
 (step 4; press Enter to set either later). Safe to re-run. It does not apply
 the firewall yet (#12).
+
+`--overpass-region` is the encounter map region: a Geofabrik path, the part of
+a `https://download.geofabrik.de/` extract URL before `-latest.osm.pbf` (the
+example above is Monaco; use yours). Encounters spawn only inside it. The
+script keeps it in a Secret, never in git, because it says roughly where the
+players are. Without the flag a first run asks; Enter skips it, and encounters
+stay off until you re-run with the flag (meanwhile `overpass-0` shows
+`CreateContainerConfigError`, which is expected).
+
+The map database imports once step 7 deploys it, which takes a while (many
+minutes, longer for a bigger region); encounters stay off until it finishes.
+Watch it:
+
+```bash
+sudo k3s kubectl -n esper logs -f overpass-0
+```
+
+To change the region later, re-run `sudo ./host-setup.sh --overpass-region <new
+path>`. It stops the map service, restarts the server with the new outline and
+starts the map service again, which imports the new region by itself.
+Encounters are off until the import finishes. If the script is interrupted,
+just run it again. Re-running with the same region refreshes the outline
+without importing again.
 
 ## 4. Signing fingerprint
 

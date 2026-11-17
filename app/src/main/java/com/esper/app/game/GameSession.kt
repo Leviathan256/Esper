@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.esper.app.core.ServerClient
+import com.esper.app.core.ServerError
 import com.esper.app.core.Settings
 import com.esper.app.core.Unauthorized
 import com.esper.engine.character.CharacterState
@@ -20,6 +21,7 @@ import com.esper.engine.encounter.BattleBuilder
 import com.esper.engine.encounter.Encounter
 import com.esper.engine.encounter.EncounterSeeder
 import com.esper.engine.encounter.GeodataSafetyChecker
+import com.esper.engine.encounter.OverpassHazards
 import com.esper.engine.geometry.GeoPoint
 import com.esper.engine.geometry.LocalTangentPlane
 import kotlinx.coroutines.CancellationException
@@ -29,6 +31,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import kotlin.math.max
 
@@ -326,11 +329,14 @@ object GameSession {
         }
 
         val hazards = try {
-            HazardSource.around(center, HAZARD_QUERY_RADIUS_METRES)
+            val server = client() ?: throw IOException("Not signed in.")
+            val body = server.hazards(center.lat, center.lon).checkAuth().getOrThrow()
+            // MapScreen calls this on the main thread; the body can be large.
+            withContext(Dispatchers.Default) { OverpassHazards.parse(body) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            encounterNotice = "Can't check the area is safe right now (offline?), so no encounter yet."
+            encounterNotice = hazardFailureNotice(e)
             return
         }
         // A fight may have started while the request was in flight.
@@ -405,12 +411,6 @@ object GameSession {
         encounter = null
     }
 
-    /**
-     * Covers the 10 m seeding ring plus the widest default buffered hazard (a
-     * river: 10 m half-width + 2 m clearance) with room for wider `width` tags.
-     */
-    private const val HAZARD_QUERY_RADIUS_METRES = 40.0
-
     /** Re-seed once the encounter is further than this many leash radii away. */
     private const val RESEED_DISTANCE_FACTOR = 5.0
 }
@@ -421,3 +421,11 @@ internal fun shouldSendFix(lastSent: GeoPoint?, lastSentAtMillis: Long, fix: Geo
     if (nowMillis - lastSentAtMillis >= 30_000L) return true
     return LocalTangentPlane(lastSent).distanceMetres(lastSent, fix) >= 50.0
 }
+
+/** Why no encounter was seeded when the hazard check failed. Every failure but a coverage gap fails closed. */
+internal fun hazardFailureNotice(error: Throwable): String =
+    if (error is ServerError && error.code == "outside_coverage") {
+        "Encounters aren't available in this area yet."
+    } else {
+        "Can't check the area is safe right now, so no encounter yet."
+    }
