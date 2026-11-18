@@ -1576,9 +1576,7 @@ not a committed picture.
 in two parts): when `server/rules/examples/looks_sheet.rs` exists. Until then
 the Rust loader rejects `look` and the focus command does not exist. A run
 asked for a new unit before that adds the file with no `look` and says in the
-pull request that the look is still to come; if the suites of step 6 then fail
-on their lists of expected ids, step 0b has not landed either, and the same
-pull request relaxes the two lists as 0b's row says (§9). From step 1 on, the
+pull request that the look is still to come. From step 1 on, the
 field table, the grammar and the resolving rules are in
 `content/schema/look.schema.md`.
 

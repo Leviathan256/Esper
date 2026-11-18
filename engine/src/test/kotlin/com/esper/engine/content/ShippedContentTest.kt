@@ -59,18 +59,17 @@ class ShippedContentTest {
         assertEquals(monsters.size, catalog.monsters.size)
     }
 
+    // Contains, not equals: a new unit is one file and edits no test.
     @Test
-    fun `shipped jobs contain the expected ids`() {
-        val catalog = loadShippedCatalog()
-        val ids = catalog.jobs.map { it.id }.toSet()
-        assertEquals(setOf("squire", "knight", "apprentice"), ids)
+    fun `shipped jobs contain the starting ids`() {
+        val ids = loadShippedCatalog().jobs.map { it.id }.toSet()
+        assertTrue(ids.containsAll(setOf("squire", "knight", "apprentice")), "starting job missing from $ids")
     }
 
     @Test
-    fun `shipped monsters contain the expected ids`() {
-        val catalog = loadShippedCatalog()
-        val ids = catalog.monsters.map { it.id }.toSet()
-        assertEquals(setOf("slime", "goblin", "wolf"), ids)
+    fun `shipped monsters contain the starting ids`() {
+        val ids = loadShippedCatalog().monsters.map { it.id }.toSet()
+        assertTrue(ids.containsAll(setOf("slime", "goblin", "wolf")), "starting monster missing from $ids")
     }
 
     @Test

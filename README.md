@@ -143,7 +143,7 @@ included in the context sent to Claude.
 
 - version name/code, channel, and commit sha of the running build
 - device model, Android version, locale
-- current map centre and zoom
+- current map zoom
 - the stack trace from the last crash, if there was one
 - a short breadcrumb log from the session
 
