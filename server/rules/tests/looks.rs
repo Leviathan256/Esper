@@ -3,7 +3,11 @@
 
 use std::path::Path;
 
-use rules::content::parse_path;
+mod look_checks;
+
+use look_checks::{HUE_HEX, fnv1a32, shade, tint};
+
+use rules::content::{HUES, parse_path};
 
 /// The rows of a fixture table, header dropped, each split on tabs.
 fn rows(name: &str) -> Vec<Vec<String>> {
@@ -36,5 +40,35 @@ fn the_path_grammar_matches_its_fixture() {
                 "{path} (cutCorners {cut}) accepted as {got:?}"
             );
         }
+    }
+}
+
+#[test]
+fn the_id_hash_picks_the_hue_in_its_fixture() {
+    for row in rows("hue.tsv") {
+        let [id, hash, hue] = &row[..] else {
+            panic!("hue.tsv row needs 3 columns: {row:?}")
+        };
+        let h = fnv1a32(id);
+        assert_eq!(h.to_string(), *hash, "{id}");
+        assert_eq!(HUES[(h % 8) as usize], hue, "{id}");
+    }
+}
+
+#[test]
+fn tint_and_shade_match_their_fixture() {
+    let rows = rows("mix.tsv");
+    assert_eq!(rows.len(), 16);
+    for row in rows {
+        let [f, hue, hex] = &row[..] else {
+            panic!("mix.tsv row needs 3 columns: {row:?}")
+        };
+        let i = HUES.iter().position(|h| h == hue).expect(hue);
+        let mix = match f.as_str() {
+            "tint" => tint,
+            "shade" => shade,
+            _ => panic!("unknown fn {f}"),
+        };
+        assert_eq!(format!("#{:06X}", mix(HUE_HEX[i])), *hex, "{f}({hue})");
     }
 }

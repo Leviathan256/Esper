@@ -1,0 +1,17 @@
+fn	hue	hex
+tint	moss	#D5DCBB
+tint	jade	#C2E2D5
+tint	slate	#D2D4D4
+tint	steel	#DCDEDE
+tint	violet	#D5C8E2
+tint	crimson	#E6BDBB
+tint	ember	#F1D2B6
+tint	bone	#F1EBDE
+shade	moss	#586C31
+shade	jade	#2F7969
+shade	slate	#525B67
+shade	steel	#67717E
+shade	violet	#574186
+shade	crimson	#7D2931
+shade	ember	#945627
+shade	bone	#938D7E
