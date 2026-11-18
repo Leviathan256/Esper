@@ -497,7 +497,9 @@ character and not with the job instance.
 
 How the game looks is designed in [`docs/VISUALS.md`](VISUALS.md), with every
 colour, size and path a run needs and the way to render and check its work. A
-run that draws anything reads that file first. None of it is built yet; its
+run reads the part it needs, by section title: "Adding a look" and "Tier 1"
+for a new or changed unit; for anything else on screen, that screen's part of
+"The look", then "Constants" and "Tier 2". None of it is built yet; its
 rollout section is the order. These are its hard rules, here because every run
 reads this file. A rule binds from the rollout step that builds what it is
 checked with: looks from step 1 (until that is on `main`, no content file

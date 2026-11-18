@@ -16,10 +16,10 @@ show the six starting units and are frozen: no content pull request edits
 them, and each is superseded by the pictures under `app/src/test/snapshots/`
 once the step that draws its screen lands.
 
-Where two sources disagree, or one is silent, the order is: this text, then
-the constants of §5, then the mockup SVG. The mockups are drawn 1 unit to 1 dp
-from those constants, so a size or a position the text does not give may be
-read from the SVG source.
+Where two sources disagree, or one is silent, the order is: `Spec.kt` for a
+number it holds (§5), then this text, then the constants of §5, then the
+mockup SVG. The mockups are drawn 1 unit to 1 dp from those constants, so a
+size or a position the text does not give may be read from the SVG source.
 
 Reference phone for every size below: 412 x 915 dp, 2.625 px per dp
 (1080 px wide, 420 dpi), so 1 dp is 0.159 mm. Every layout is portrait:
@@ -256,7 +256,10 @@ Encounter header (§4.4) itself.
 `error` `foe`, `on*` of those `paper`; `background`, `surface` and every
 `surfaceContainer*` `paper`; `surfaceVariant` `paperDim`; `onBackground` and
 `onSurface` `ink`; `onSurfaceVariant` `inkSoft`; `outline` `ink`;
-`outlineVariant` `line`; `surfaceTint` `paper`.
+`outlineVariant` `line`; `surfaceTint` `paper`; `primaryContainer`,
+`secondaryContainer`, `tertiaryContainer`, `errorContainer` and `surfaceDim`
+`paperDim`, the `on*` of those containers `ink`; `inverseSurface` and `scrim`
+`ink`; `inverseOnSurface`, `inversePrimary` and `surfaceBright` `paper`.
 
 ### 4.2 The map
 
@@ -273,8 +276,8 @@ The map is the mat, so it is quietened, never hidden.
 3. `tilesOverlay.loadingBackgroundColor` and `loadingLineColor` set to `paper`,
    so a missing tile is paper, not a grey checkerboard.
 4. In an Encounter: `paper` at 50% inside the leash ring, `ink` at 13% outside
-   it. Past zoom 19 the tiles are enlarged about 20 times and are only soft
-   colour fields; the wash makes that a deliberate "paper over the map".
+   it. Past zoom 19 the tiles are enlarged about 20 times without smoothing:
+   blocks about 8 dp across, no blur; the wash makes it "paper over the map".
 5. On the Encounter's map,
    `zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)`.
    osmdroid shows its stock plus and minus buttons on a touch unless told not
@@ -300,7 +303,7 @@ on screen and how many pixels a metre is.
 **Survey ink (optional, waits on Levi, §12 question 5).** The app already
 receives roads, paths, water and buildings within 40 m for the safety check
 (`GET /v1/hazards`) and throws them away. Drawing those shapes in `inkSoft`
-over the soft raster would show real geometry at one metre per cell before
+over the coarse raster would show real geometry at one metre per cell before
 vector tiles exist. It means keeping that response in memory for the length of
 an Encounter, so "Why the app asks for location" needs a sentence first.
 
@@ -427,15 +430,17 @@ chosen cell, a unit in reach the chosen target, any other unit is inspected:
 the unit card shows it in place of the acting unit, and the map marks it with
 the pointer and its reach.
 
-**The header and the turn rail** (72 dp, `paper`, 1.5 dp `ink` line below).
-On the Encounter route this replaces the scaffold's top bar; the semantic pane
+**The header and the turn rail** (72 dp, `paper`, 1.5 dp `ink` line below). On
+the Encounter route this replaces the scaffold's top bar; the semantic pane
 title stays "Encounter". Today's `TopAppBar` pads itself below the status bar;
 this header must do it (`statusBarsPadding()`), and the bottom panel must stay
-above the navigation bar (`navigationBarsPadding()`): the app targets SDK 35,
-so on Android 15 it is drawn edge to edge. Positions below are from the
-header's own top left corner, at font scale 1.0. At a larger scale the header
-grows by what the label's size gains over 14 dp, and everything under the
-label moves down by as much.
+above the navigation bar (`navigationBarsPadding()`): the app is drawn edge to
+edge, on Android 14 too, because `MainActivity` calls `enableEdgeToEdge` with
+`SystemBarStyle.light` for both bars before `setContent`. Its `NavHost` adds
+`.consumeWindowInsets(padding)` after `.padding(padding)`, or the scaffold's
+inset padding is applied twice. Positions below are from the header's own top
+left corner, at font scale 1.0. At a larger scale the header grows by what the
+label's size gains over 14 dp, and all under the label moves down as much.
 
 - Back, a 48 dp box at the left: an `ink` chevron pointing left, 8 dp wide
   and 14 dp high, 2.5 dp, square caps, centred at (24, 36). It calls the back
@@ -506,13 +511,13 @@ clips it.
   button, or Back, returns to the panel. The card covers the panel and grows
   upward over the map as its content needs, to half the map's height at most;
   past that its list scrolls, with `Close` pinned at its foot.
-- **Unit card**, 60 dp. Left: the acting (or inspected) unit: token 44 dp, name
-  (display 19), `Squire · Lv 2` (HUD 14, `inkSoft`), an HP bar 112 x 12 dp,
-  `HP 10 / 14`, `AC 12`. The card splits 56 : 44 by weight, with a `line`
-  divider between the halves (x = 232 on the reference phone). Right of it,
-  the chosen target: token 32 dp with its HP bar, name, `HP 9 / 9 · AC 12`,
-  `TARGET` (HUD 14, `foe`). On a narrow screen `· AC 12` wraps to its own
-  line.
+- **Unit card**, 60 dp, a region of the panel with no outline and no foot.
+  Left: the acting (or inspected) unit: token 44 dp, name (display 19),
+  `Squire · Lv 2` (HUD 14, `inkSoft`), an HP bar 112 x 12 dp, `HP 10 / 14`,
+  `AC 12`. The card splits 56 : 44 by weight, with a `line` divider between
+  the halves (x = 232 on the reference phone). Right of it, the chosen target:
+  token 32 dp with its HP bar, name, `HP 9 / 9 · AC 12`, `TARGET` (HUD 14,
+  `foe`). On a narrow screen `· AC 12` wraps to its own line.
 - **Commit button**, 56 dp, full width, the only gold on the panel. It says
   what it will do (HUD 20) and what the dice need (HUD 14):
 
@@ -609,15 +614,14 @@ have one home.
 | Field | Type | Rule |
 |---|---|---|
 | `glyph` | path string | The stamp, drawn at every size. Even-odd. At most 40 segments and 6 subpaths. Every point outside the four cut corners (below). |
-| `mark` | path string | Jobs only, and only a job with no `glyph` of its own and at least one prerequisite. Appended to the glyph inherited from the first prerequisite. At most 12 segments. Same corner rule. |
+| `mark` | path string | Jobs only, and only a job with no `glyph` of its own and at least one prerequisite. Appended to the glyph inherited from the first prerequisite. At most 12 segments and 6 subpaths. Same corner rule. |
 | `hue` | one of the 8 hue names | The plate's colour. |
-| `details` | list of `{ "tone", "d" }`, at most 6 | Plate only. `tone` is `hue`, `shade`, `paper`, `ink` or `accent`. `d` is a path of at most 16 segments, anywhere in the box, filled even-odd. |
+| `details` | list of `{ "tone", "d" }`, at most 6 | Plate only. `tone` is `hue`, `shade`, `paper`, `ink` or `accent`. `d` is a path of at most 16 segments and 6 subpaths, anywhere in the box, filled even-odd. |
 
-All four are optional and `"look": {}` is valid. Unknown keys inside `look` are
-an error in Rust and ignored by the app. Every rule in this table can be
-decided from the one file, and those are the only rules the server enforces.
-What depends on a second file (a mark against the glyph it is added to) is
-checked on pull requests only (§7).
+All four are optional and `"look": {}` is valid. Unknown keys inside `look`
+are an error in Rust and ignored by the app. The server enforces this table
+and the grammar and nothing else (§6); what needs a second file (a mark
+against the glyph it is added to) is checked on pull requests only (§7).
 
 **Path grammar.** One grammar for `glyph`, `mark` and `d`, small enough that the
 Rust and Kotlin parsers cannot disagree:
@@ -645,18 +649,18 @@ number  = 1 or 2 digits, optionally "." and 1 or 2 digits, value 0 to 24
 
 **Resolving a look.** For a unit `u`:
 
-1. `glyph`: `u.look.glyph`; else, for a job, the resolved glyph of
-   `prerequisites[0]` followed by a space and `u.look.mark` if it has one; else
-   none. A mark with no glyph to inherit is ignored, and the job draws its
+1. `glyph`: `u.look.glyph`; else, for a job that gives a `mark`, the resolved
+   glyph of `prerequisites[0]` followed by a space and the mark; else none. A
+   mark with no glyph to inherit is ignored. A unit with no glyph draws its
    monogram.
 2. `hue`: `u.look.hue`; else, for a job, the resolved hue of
    `prerequisites[0]`; else `HUES[fnv1a32(id) % 8]` with `HUES` in the order
    listed in §4.1 and FNV-1a over the id's UTF-8 bytes (offset `0x811C9DC5`,
    prime `0x01000193`).
-3. `details`: `u.look.details` if not empty; else, for a job that gives no
-   `glyph`, the resolved details of `prerequisites[0]`; else none. Details
-   travel with the glyph they were drawn for. Tone `hue` is the resolving
-   unit's hue, so an inherited plate recolours itself.
+3. `details`: `u.look.details` if not empty; else, for a job that takes its
+   glyph from `prerequisites[0]`, that unit's resolved details; else none.
+   Details travel with the glyph they were drawn for. Tone `hue` is the
+   resolving unit's hue, so an inherited plate recolours itself.
 
 **Job lineage.** A job with a prerequisite gets its glyph in one of two ways.
 What decides is whether its people carry what its parent's people carry.
@@ -685,10 +689,11 @@ glyph would make two monsters identical in a fight; and a reference would let
 an edit to one file silently change another.
 
 **No look yet.** The unit still draws and plays. Token: its monogram, the first
-letter or digit of `displayName` in upper case, HUD, `paper`, size 0.85 of the
-glyph box, baseline 0.30 of the glyph box below the centre. Plate: the monogram in display, `ink`, size
-`0.40 P`, baseline `0.14 P` below the centre, on the tint of the hue from the
-id hash. A stats-only file looks unfinished, not broken.
+letter or digit of `displayName` in upper case (`?` when it has none), HUD,
+`paper`, size 0.85 of the glyph box, baseline 0.30 of the glyph box below the
+centre. Plate: the monogram in display, `ink`, size `0.40 P`, baseline
+`0.14 P` below the centre, on the tint of its resolved hue. A stats-only file
+looks unfinished, not broken.
 
 **Plates.** The same glyph, large, in the bestiary, the character sheet and the
 creator. `P` is the plate's height: 56, 104 or 156 dp.
@@ -753,9 +758,9 @@ Checked with the pinned rasteriser (tiny-skia 0.12.0, the checks of §7):
 
 | Unit | Segments | Subpaths | Coverage at 16 px | Survives erosion | Nearest other look |
 |---|---|---|---|---|---|
-| goblin | 14 | 3 | 33.6% | 39.5% | slime 61% |
-| slime | 15 | 3 | 40.6% | 46.2% | apprentice 63% |
-| wolf | 18 | 3 | 35.9% | 37.0% | goblin 53% |
+| goblin | 14 | 3 | 33.6% | 39.5% | slime 64% |
+| slime | 15 | 3 | 40.6% | 46.2% | goblin 64% |
+| wolf | 18 | 3 | 35.9% | 37.0% | goblin 57% |
 | apprentice | 10 | 2 | 35.2% | 47.8% | slime 63% |
 | squire | 16 | 1 | 35.2% | 53.3% | apprentice 61% |
 | knight (squire + mark) | 22 | 3 | 39.8% | 49.0% | apprentice 55% (squire 88%: in line, excused) |
@@ -799,7 +804,8 @@ below, the title in display 22, the icons of §4.1.
   `LocationOff` and `Location off: the circle follows the map`. Sync and
   content errors are a `foe`-outlined card under it with the sentence the app
   shows today.
-- **The card:** the monsters' tokens at 28 dp; their names (display 19),
+- **The card:** the panel under the map (`paper`, 1.5 dp `ink` line above, no
+  outline, no foot): the monsters' tokens at 28 dp; their names (display 19),
   "Goblin and Wolf"; then one line (body 14, `inkSoft`):
   `8 m away, inside your circle. No walking needed.`, or outside the circle
   `19 m away. No walking needed: enter from here.` A gold `Enter encounter`
@@ -863,7 +869,7 @@ Themed only: the components above, one gold button each (`Save`,
 **Launcher icon.** An adaptive icon as VectorDrawable XML: `paper` background;
 foreground on the 108 dp canvas, `ink`, `fillType="evenOdd"`,
 `pathData="M79.98,69 L79.98,39 L54,24 L28.02,39 L28.02,69 L54,84 Z M54,36 L58,50 L72,54 L58,58 L54,72 L50,58 L36,54 L50,50 Z"`.
-`themes.xml` sets the window background to `paper` and a light status bar.
+`themes.xml` sets the window background to `paper`.
 
 ### 4.7 Motion
 
@@ -959,7 +965,9 @@ from a queue.
 
 Every number a builder needs. They live in one Kotlin file
 (`ui/theme/Spec.kt`), which the app and its tests both read, so a test picture
-and the app cannot drift apart.
+and the app cannot drift apart. Once that file holds a number it is the
+source: a pull request changes it there and in the sentence of §4 that states
+it, and the tables below are not kept up to date.
 
 **Camera and map**
 
@@ -1065,11 +1073,7 @@ flash 120; number 700 (fade in the last 200, rise 20 dp); die leaves at 1060;
 next event at 700; ring 420; defeat 300; ghost 600; still 1200; flash spacing
 334.
 
-**Look checks**: segments 40 (glyph), 12 (mark), 16 (a detail); subpaths 6;
-details 6; cut corner 4 units; raster 16 px; ink is alpha >= 128; coverage
-0.22 to 0.62 (aim for 0.33 to 0.45, to 0.50 with a mark); erosion survival
->= 0.35; bounding box >= 10 px each way; mark >= 6 px with <= 10% on the
-inherited glyph; similarity limit 0.75.
+**Look checks**: the field table of §4.5 and the check table of §7.
 
 **Fixture Town.** The only ground in any test, artifact or committed picture.
 Metres east and north of the Encounter anchor, drawn in this order. Colours
@@ -1087,8 +1091,8 @@ are standard OSM colours after the tile filter. An invented place.
 | houses | 9 x 8 at x = -24, -12, 0, 12, 24, 36, y 40 to 48; 8 x 9 at x -46 to -38, y from -20, -8, 4, 16 | `#D6D1CC` |
 | trees | circles of radius 1 at (-4, -9), (3, 12.5), (-10, 9), (13, 4), (-9, -2), (-18, 6), (20, -18), (-20, -26), (26, 20), (-14, 22) | `#BFD6B8` |
 
-Tests draw it sharp and with no labels. The mockups blur it to imitate
-enlarged tiles.
+Tests draw it sharp and with no labels. The mockups blur it; real enlarged
+tiles are blocky (§4.2).
 
 **Fixture content.** No picture a test compares shows shipped content. Every
 snapshot test but `shipped_units` (§7) builds its state and its `Looks` from
@@ -1118,13 +1122,14 @@ other field takes any valid value.
 | Ash | `player` | ally | `fx_guard` | 10 / 14 | 12 | 8 | 100 | (0, 0) |
 | Ring | `fx_ring#0` | hostile | `fx_ring` | 9 / 9 | 12 | 14 | 38 | (1, 0) |
 | Arrow | `fx_arrow#1` | hostile | `fx_arrow` | 3 / 7 | 13 | 7 | 61 | (3, 1) |
-| Nolook | `fx_nolook#2` | hostile | `fx_nolook` | 4 / 4 | 8 | 3 | 72 | (-3, -2) |
+| Nolook | `fx_nolook#2` | hostile | `fx_nolook` | 4 / 4 | 8 | 3 | 72 | (4, 0) |
 
 Ash is acting, with Move 4 and `+4`, `1d8+2`; Ring is the chosen target; a
 defeated mark at (-1, 2); last roll Ring on Ash, d20 13, `+3 = 16` vs AC 12,
 hit, d6 3 `+1`, 4 HP. It is the scene of the fight mockups with test shapes in
-place of creatures. The predicted strip for it is Ring, Arrow, Nolook, Ring,
-Ash, Ring (no two units are ever ready together, so ids do not decide it).
+place of creatures, and Nolook moved under Arrow so that an HP bar crosses a
+token. The predicted strip for it is Ring, Arrow, Nolook, Ring, Ash, Ring (no
+two units are ever ready together, so ids do not decide it).
 `combat_attack_strip` and `combat_attack_still` are the moment before: Ring
 acting, Ash at 14 / 14, that roll being replayed. `combat_states` is the same
 fight four times, side by side: the cell (-1, -1) chosen, with its ghost and
@@ -1133,10 +1138,11 @@ Encounter log open; and the `Victory` card.
 
 **The fixture character and map.** Ash, a Guard at level 2 with XP 180 / 300;
 job points Guard 100 / 100 and Warden 40 / 200; bestiary Ring ×5 and Arrow ×1.
-The `bestiary_entry` picture is Ring's. On the `map` picture the leash centre
-is at (-5, -6) and the Encounter at the anchor holds Ring and Arrow, 8 m away.
-On the `ask_claude` picture the context preview is open and its map position
-is latitude 0, longitude 0, the value the app holds before it has a position.
+Its name in `combat_font130` and `combat_whole_w360` is the 24 characters a
+name may have, `Ash of the Ninth Lantern`. The `bestiary_entry` picture is
+Ring's. On the `map` picture the leash centre is at (-5, -6) and the Encounter
+at the anchor holds Ring and Arrow, 8 m away. On the `ask_claude` picture the
+context preview is open; its `map:` line holds a zoom and no position.
 
 ---
 
@@ -1159,7 +1165,7 @@ is latitude 0, longitude 0, the value the app holds before it has a position.
 | Rail, tray, card, buttons | composables | `app/.../ui/game/CombatHud.kt` |
 | A unit's look | the `look` object | inside `content/monsters/<id>.json` and `content/jobs/<id>.json` |
 | The look types and structural rules | Rust | `server/rules/src/content.rs` |
-| The rasteriser and the pixel checks | Rust, dev-dependency only | `server/rules/tests/look_checks/mod.rs`, shared: `mod look_checks;` in `server/rules/tests/looks.rs`, and `#[path = "../tests/look_checks/mod.rs"] mod look_checks;` in the example. Its first line is `#![allow(dead_code)]`: each of the two uses only part of it, and CI's clippy fails on the warning |
+| The rasteriser, the pixel checks, the id hash and the colour mixing | Rust, dev-dependency only | `server/rules/tests/look_checks/mod.rs`, shared: `mod look_checks;` in `server/rules/tests/looks.rs`, and `#[path = "../tests/look_checks/mod.rs"] mod look_checks;` in the example. Its first line is `#![allow(dead_code)]`: each of the two uses only part of it, and CI's clippy fails on the warning |
 | The sheet and the focus render | Rust example | `server/rules/examples/looks_sheet.rs` |
 | Grammar, hash and colour-mixing cases both sides must agree on | text fixtures | `content/fixtures/look/grammar.tsv`, `hue.tsv`, `mix.tsv` |
 | Test fixtures, snapshot helper | Kotlin | `app/src/test/java/com/esper/app/visual/` |
@@ -1196,14 +1202,12 @@ ember, bone): tint `#D5DCBB` `#C2E2D5` `#D2D4D4` `#DCDEDE` `#D5C8E2` `#E6BDBB`
   older APK: the monogram comes from the name the scene carries and the hue
   from the id hash. It never throws.
 - **Rust strict loader:** the types below, and structural checks in
-  `validate()`: the field table of §4.5 and nothing more. The grammar, the
-  segment and subpath caps and the cut corners on each path, the hue and tone
-  names, at most 6 details, `mark` only on a job with no `glyph` and at least
-  one prerequisite. Every one is decided from the one file, so two pull
-  requests that each pass can never stop the server together. No rasteriser:
-  the server refuses to start on a malformed look, it does not judge a
-  drawing. **This lands before any content file carries `look`** (rollout
-  step 1), because the server rejects a field it does not know.
+  `validate()`: the grammar and the field table of §4.5, and nothing more.
+  Every rule is decided from the one file, so two pull requests that each pass
+  can never stop the server together. No rasteriser: the server refuses to
+  start on a malformed look, it does not judge a drawing. **This lands before
+  any content file carries `look`** (rollout step 1), because the server
+  rejects a field it does not know.
 
   ```rust
   #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
@@ -1253,6 +1257,7 @@ data class SceneUnit(val id: String, val name: String, val kind: UnitKind, val s
                      val q: Int, val r: Int, val hp: Int, val maxHp: Int, val gauge: Double, val speed: Int,
                      val attackRangeCells: Int)
 sealed interface Feedback   // a die, a number or a flash of §4.7, with the milliseconds since it started
+// reachable: the rules' legal moves less the acting unit's own cell, which both legalMoves implementations include
 data class BoardScene(val radiusCells: Int, val units: List<SceneUnit>, val actingId: String?,
                       val reachable: Set<Pair<Int, Int>>, val inReach: Set<String>, val chosenCell: Pair<Int, Int>?,
                       val chosenTargetId: String?, val inspectedId: String?, val defeated: List<Pair<Int, Int>>,
@@ -1265,8 +1270,10 @@ fun DrawScope.drawBoard(layers: List<Layer>, camera: BoardCamera, looks: Looks)
 - `HexGridOverlay` stays an osmdroid `Overlay`, so the board stays glued to
   the map during a pinch and Pillar 1's wording stays true. Its `draw()`
   becomes: wrap the native canvas in a `CanvasDrawScope`, build `BoardCamera`
-  from the projection (project the anchor and a point one metre east of it),
-  call `drawBoard`. It stops projecting 2,814 corners a frame.
+  from the projection (the anchor from `projection.toPixels`; the scale from
+  `projection.metersToPixels(1f, anchorLatitude, projection.zoomLevel)`, never
+  from two projected points: `toPixels` returns whole pixels), call
+  `drawBoard`. It stops projecting 2,814 corners a frame.
 - Text inside these functions (a monogram, a die's number, the leash tag, the
   damage number) is drawn with `drawIntoCanvas { it.nativeCanvas.drawText(...) }`
   and an `android.graphics.Paint`: `Typeface.create("sans-serif-condensed",
@@ -1321,6 +1328,7 @@ android {
                 }
                 test.systemProperty("roborazzi.record.resizeScale", "0.5")
                 test.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
+                test.systemProperty("robolectric.graphicsMode", "NATIVE")   // in the default, LEGACY, Roborazzi writes a box diagram
                 test.maxHeapSize = "2g"   // a test worker gets 512 MB by default
                 // Gradle shows neither a test's output nor a failure's message by default.
                 // A run needs both: the "SNAP wrote" lines and the "Screenshots are off" message.
@@ -1343,12 +1351,12 @@ android {
 }
 ```
 
-The lines inside `all { }` were run on a plain `Test` task with Gradle 8.7 and
-JDK 17, not under the Android plugin: with no snapshots folder the task runs,
-a changed PNG or fixture runs it again, and the `SNAP wrote` line and a
-failure's whole message reach the console. The tests that read `content/`
-(`shipped_units`, `GlyphGrammarTest`, `ThemeContrastTest`) read it by path,
-`../content/` from `app/`.
+The lines inside `all { }`, the graphics mode apart, were run on a plain
+`Test` task with Gradle 8.7 and JDK 17, not under the Android plugin: with no
+snapshots folder the task runs, a changed PNG or fixture runs it again, and
+the `SNAP wrote` line and a failure's whole message reach the console. The
+tests that read `content/` (`shipped_units`, `GlyphGrammarTest`,
+`ThemeContrastTest`) read it by path, `../content/` from `app/`.
 
 ---
 
@@ -1414,15 +1422,15 @@ alpha is 128 or more.
 | size | the ink's bounding box is at least 10 px wide and 10 px tall | `too small in its box: span at least 10 of the 16 px both ways` |
 | line | an inherited glyph and its mark together have at most 40 segments and 6 subpaths | `squire's glyph and this mark make 43 segments (limit 40)` |
 | mark | the mark alone is at least 6 ink pixels, and at most 10% of them are ink in the inherited glyph | `the mark crosses the inherited glyph` / `the mark is under 6 px at 16 px` |
-| alike | intersection over union of the ink pixels of two glyphs at most 0.75, against every shipped unit it is not in line with (§4.5). Two jobs that mark the same glyph are compared | `bog_witch is 79% alike to apprentice (limit 75%). Change the outline, not the details: give it a different top, or cut a face into it.` When both take their glyph from one unit: `archer is 84% alike to knight (limit 75%). Both add a mark to squire's glyph: move the mark clear of knight's, or give archer a glyph of its own.` |
+| alike | at most 0.75 against every shipped unit it is not in line with (§4.5); two jobs that mark the same glyph are compared. The score is the higher of two intersections over union of ink pixels: of the two 16 px rasters as drawn, and of the two glyphs aligned. To align one, rasterise it at 96 px, where its ink is `n` pixels whose centres average `c`, and draw it into 32 px with `c` at the centre, scaled about it by `sqrt(2304 / n)`, so that its ink covers a quarter of the raster; compare the two aligned rasters, and again with one mirrored left to right. A drawing that is moved, resized or flipped keeps its aligned score | `bog_witch is 79% alike to apprentice (limit 75%). Change the outline, not the details: give it a different top, or cut a face into it.` When both take their glyph from one unit: `archer is 84% alike to knight (limit 75%). Both add a mark to squire's glyph: move the mark clear of knight's, or give archer a glyph of its own.` |
 
-**Where each check runs.** A check that one file decides is a test. A check
-that needs a second file runs on pull requests only, on the files the pull
-request changes: otherwise two pull requests that each pass could turn `main`
-red when both merge.
+**Where each check runs.** None is a `cargo test`: the deploy workflow runs
+those, and a drawing must not hold the server back. A check that needs a
+second file runs on pull requests only, on the files the pull request changes:
+otherwise two pull requests that each pass could turn `main` red together.
 
-- Coverage, thin parts and size of a `glyph` written in a file:
-  `tests/looks.rs`, the sheet and the focus render.
+- Coverage, thin parts and size of a `glyph` written in a file: the sheet and
+  the focus render.
 - The same three on an inherited glyph with its `mark`, and the line and mark
   checks: the focus render only.
 - Alike: the focus render only. It compares with shipped units, never with
@@ -1433,15 +1441,11 @@ The numbers are the pinned rasteriser's: tiny-skia 0.12.0 samples each pixel
 a pixel, so only the cargo command's verdict counts and a run never
 re-implements the checks.
 
-A throwaway version of these checks ran on the host that wrote this, on the
-repo's pinned toolchain: the table in §4.5 is its output, and it refused two of
-this document's own first drawings (a goblin too thin at 33.3%, a witch in a
-cut corner).
-
 ### Tier 2: screens, with Gradle on the runner (minutes)
 
 Robolectric tests render stateless screen content with fixed state. One helper
-is the only way to take a picture, and it cannot pass silently:
+is the only way to take a picture, and it fails with neither property set,
+where Roborazzi alone would return without drawing and report success:
 
 ```kotlin
 // app/src/test/java/com/esper/app/visual/Snap.kt
@@ -1456,7 +1460,7 @@ fun snap(name: String, committed: Boolean = true, content: @Composable () -> Uni
     val writing = recording || !committed           // artifacts are written in every mode and never compared
     if (writing) file.delete()                      // so "exists" below means "written just now"
     val options = if (writing) RoborazziOptions(taskType = RoborazziTaskType.Record) else RoborazziOptions()
-    captureRoboImage(file.path, options) { EsperTheme { content() } }
+    captureRoboImage(file.path, options) { EsperTheme { Surface { content() } } }   // the window is transparent
     if (writing) {
         check(file.exists()) { "No picture was written: ${file.path}" }
         println("SNAP wrote app/${file.path}")
@@ -1464,10 +1468,7 @@ fun snap(name: String, committed: Boolean = true, content: @Composable () -> Uni
 }
 ```
 
-- Step 3 lands the helper calling `content()` bare: `EsperTheme` arrives in
-  step 4, which adds the wrapper and records `signin` again.
 - Test classes: `@RunWith(RobolectricTestRunner::class)`,
-  `@GraphicsMode(GraphicsMode.Mode.NATIVE)`,
   `@Config(sdk = [34], qualifiers = "w412dp-h915dp-420dpi")`.
 - Unit tests run with `app/` as the working directory, so the paths above are
   `app/src/test/snapshots/` and `app/build/outputs/roborazzi/`.
@@ -1489,8 +1490,6 @@ fun snap(name: String, committed: Boolean = true, content: @Composable () -> Uni
   fails when a screen no longer matches its committed PNG, or has none, and
   writes the comparison under `app/build/outputs/roborazzi/`. It still writes
   the pictures that are never committed, which is how CI has them to upload.
-- With neither property the screenshot tests fail with the message above.
-  Roborazzi on its own would return without drawing and report success.
 
 **Committed pictures** (fixtures only, half scale, about 541 x 1201 px each):
 `signin`, `creator`, `map`, `combat_fight`, `combat_whole`, `combat_sun` (a
@@ -1520,11 +1519,10 @@ never compared, uploaded by CI):
 ### What CI enforces
 
 - `server` job: the strict loader and the one-file look rules (`cargo test`).
-  `tests/looks.rs` runs the own-glyph pixel checks on shipped content and
-  reads `content/fixtures/look/`: grammar cases with their expected accept or
-  reject and counts, hue hashes, and the sixteen derived colours. A step
-  runs the looks sheet; on pull requests a step runs the focus render for
-  every unit file the pull request changes; a step uploads
+  `tests/looks.rs` reads `content/fixtures/look/`: grammar cases with their
+  expected accept or reject and counts, hue hashes, and the sixteen derived
+  colours. A step runs the looks sheet; on pull requests a step runs the focus
+  render for every unit file the pull request changes; a step uploads
   `server/target/looks/`.
 - `build` job: the unit-test step passes `-Proborazzi.test.verify=true`; a
   step uploads `app/build/outputs/roborazzi/` always.
@@ -1573,41 +1571,41 @@ dispatched (2026-11-17 and 2026-11-18) stopped within seconds, because the
 repository has neither `ANTHROPIC_API_KEY` nor `CLAUDE_CODE_OAUTH_TOKEN`. So
 no run here has edited a file, committed or opened a pull request, and what
 one would do is read from the action's source at `v1` (commit `e5812cd`), not
-seen. Three things stand between today and a run that builds:
-
-- It cannot start (the secret).
-- What it commits with the action's commit tool would land on `main`. With
-  `use_commit_signing: true` that tool takes only files and a message and
-  commits to one branch: `CLAUDE_BRANCH` if set, otherwise the ref the
-  workflow was dispatched on, which the app sets to the base branch itself:
-  `main`. `main` has no branch protection, so that is past the pull-request
-  gate `GAME_DESIGN.md` ("Who is allowed to vibe-code") says to keep.
-- It cannot render and look: the workflow tells runs to use `./gradlew` (no
-  wrapper jar is committed), sets up neither Java, Gradle nor Rust, and stops
-  at 40 turns.
-
-Six changes, the first not a file:
+seen. Six changes, the first not a file:
 
 1. A repository secret, `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN`
-   (README, "Setting up the Claude dispatch"). Levi's to add; no file changes.
-2. A branch of its own for every run. On the "Run Claude Code" step:
-   `env: CLAUDE_BRANCH: ask/${{ github.run_id }}`, and the action's
-   `base_branch` input set to the expression the checkout step uses. The
-   commit tool creates that branch from the base branch on its first commit
-   and commits there.
+   (README, "Setting up the Claude dispatch"). Levi's to add, and added last:
+   until change 2 is on `main`, a run that can start commits to `main`.
+2. A branch of its own for every run. With `use_commit_signing: true` the
+   action's commit tool takes only files and a message and commits to one
+   branch: `CLAUDE_BRANCH` if set, otherwise the ref the workflow was
+   dispatched on, which the app sets to the base branch, `main`. `main` has no
+   branch protection, so that is past the pull-request gate `GAME_DESIGN.md`
+   ("Who is allowed to vibe-code") says to keep. So the "Run Claude Code" step
+   gets `env: CLAUDE_BRANCH: ask/${{ github.run_id }}` and the action's
+   `base_branch` input set to the checkout step's expression, and a step
+   before it runs `git push origin "HEAD:refs/heads/ask/${{ github.run_id }}"`:
+   the commit tool then commits on top of what the run read. Left to create
+   the branch, it cuts it from the base branch's tip at commit time and writes
+   its files whole over anything merged during the run.
 3. Before "Run Claude Code": `actions/setup-java@v4` (temurin 17);
    `gradle/actions/setup-gradle@v4` with `gradle-version: "8.7"` and
    `cache-read-only: true`; `rustup toolchain install` run in `server/`. All as
    `ci.yml` does. The runner image already has the Android SDK.
-4. `claude_args`: `--max-turns 150` and
+4. `claude_args`: `--permission-mode auto`, `--max-turns 150` (40 today) and
    `--allowedTools "Bash(gradle:*),Bash(cargo:*)"`. `timeout-minutes: 75`. A
    visual change is edit, render (a cold Gradle and Robolectric run is several
-   minutes), look, fix, at least twice.
-5. In the prompt, replace the `./gradlew :app:assembleRelease` line with
-   `gradle :app:assembleRelease`, and add: "If the change touches anything on
-   screen or a `look`, follow the verification loop in `docs/VISUALS.md` §7:
-   render, open the pictures, and say in the pull request which ones you looked
-   at."
+   minutes), look, fix, at least twice. The action already starts a prompt run
+   in auto mode, where file edits run freely and its safety review decides
+   every other call. That, not the list, lets a run edit, commit and open a
+   pull request: the list restricts nothing, and auto mode may ignore rules
+   this broad. With auto mode off, a run can edit and commit nothing.
+5. In the prompt, replace the `./gradlew :app:assembleRelease` line (no
+   wrapper jar is committed) with `gradle :app:assembleRelease`, and add: "If
+   the change touches anything on screen or a `look`, follow the verification
+   loop in `docs/VISUALS.md`: render, open the pictures, and say in the pull
+   request which ones you looked at. Commit to your branch after each part
+   that compiles, and open the pull request once the first commit exists."
 6. After the Claude step, `if: always()`: `actions/upload-artifact@v4` for
    `server/target/looks/` and `app/build/outputs/roborazzi/`, so every run's
    pictures can be opened from the run page.
@@ -1644,12 +1642,10 @@ skipped, until step 1 adds the example.
         run: |
           set -euo pipefail
           git fetch --depth=1 origin "+refs/heads/$GITHUB_BASE_REF:refs/remotes/origin/$GITHUB_BASE_REF"
-          changed="$(git diff --name-only "origin/$GITHUB_BASE_REF" HEAD -- ../content/jobs ../content/monsters)"
-          for f in $changed; do
-            if [ -f "../$f" ]; then
-              cargo run --locked -p rules --example looks_sheet -- ../content target/looks --focus "${f#content/}"
-            fi
-          done
+          git diff -z --name-only --diff-filter=d "origin/$GITHUB_BASE_REF" HEAD -- ../content/jobs ../content/monsters |
+            while IFS= read -r -d '' f; do
+              cargo run --locked -p rules --example looks_sheet -- ../content target/looks --focus "${f#content/}" </dev/null
+            done
 
       - name: Upload looks
         if: always() && hashFiles('server/rules/examples/looks_sheet.rs') != ''
@@ -1662,10 +1658,10 @@ skipped, until step 1 adds the example.
 
 CI checks out a pull request as its merge commit at depth 1, which has no
 merge base with the base branch, so the step fetches the base tip and compares
-the two trees (two dots; `origin/main...HEAD` fails with "no merge base"). A
-`git` command that fails fails the step, and the tool prints one
-`FOCUS <file>` line per unit it checked, so a step that checked nothing shows
-in its log.
+the two trees (two dots). Names are read NUL-separated, so one with a space or
+a non-ASCII letter is checked like any other. The tool prints a `FOCUS <file>`
+line for each unit it checked, so a step that checked nothing shows in its
+log.
 
 ---
 
@@ -1677,13 +1673,9 @@ not a committed picture.
 
 **This section applies once rollout step 1 is on `main`.** Until then the Rust
 loader rejects `look` and the focus command does not exist. A run asked for a
-new unit before that adds the file with no `look`, and adds its id to the
-lists of expected ids in `server/rules/src/content/tests.rs` and
-`engine/src/test/kotlin/com/esper/engine/content/ShippedContentTest.kt`, which
-step 1 relaxes. It adds no row to a table in `content/schema/`, and says in
-the pull request that the look is still to come.
-From step 1 on, the field table, the grammar and the resolving rules are in
-`content/schema/look.schema.md`.
+new unit before that adds the file with no `look` and says in the pull request
+that the look is still to come. From step 1 on, the field table, the grammar
+and the resolving rules are in `content/schema/look.schema.md`.
 
 The other fields are in `content/schema/monster.schema.md` and
 `job.schema.md`. This document sets no game numbers. Start from the shipped
@@ -1773,11 +1765,11 @@ chose, rewards included, so Levi can change them.
    unit's own frame. Cover the name and say what the 16 px token is. If the
    honest answer is not the creature, change the outline. The token has to
    say its kind, not its material: stone, fire and metal are the hue's work
-   on the plate. For a job with a
-   mark the question is which job of its family the 16 px token is; the
-   family row shows them side by side. If you cannot say, enlarge the mark or
-   move it, and if that is not enough go back to step 2 and draw a glyph. Fix
-   until it reads and the command exits 0.
+   on the plate. For a job with a mark the question is which job of its
+   family the 16 px token is; the family row shows them side by side. If you
+   cannot say, enlarge the mark or move it, and if that is not enough go back
+   to step 2 and draw a glyph. Fix until it reads and the command exits 0.
+   Moving, resizing or flipping a drawing keeps its aligned score: redraw it.
 8. Run `cargo test --locked -p rules` in `server/` and, while `engine/`
    exists, `gradle :engine:test --configure-on-demand`. Open the pull request;
    say which pictures you looked at. No committed picture changes. From
@@ -1796,7 +1788,7 @@ looks: bog_witch is 79% alike to apprentice (limit 75%). Change the outline, not
 
 The second try is a hood with a face cut out of it and two eyes left standing
 in the hole: three levels of even-odd. Coverage 43.8%, survival 44.6%, nearest
-looks slime 52%, apprentice 46%, knight 45%. It has no details, so its plate is
+looks slime 57%, apprentice 50%, goblin 47%. It has no details, so its plate is
 the baseline stamp. `content/monsters/bog_witch.json`, the whole change:
 
 ```json
@@ -1830,26 +1822,30 @@ the cargo picture has four columns and no text.)
 
 ## 9. Rollout
 
-Small pull requests, in order. Each ships alone. Step 0 changes workflow
-files and adds a secret, so it is made by Levi or by a Claude session with his
-credentials (§7); once its acceptance has passed, every later step can be an
-Ask Claude run. Steps 1 and 2 do not depend on each other and may land in
-either order. Nothing from step 6 on starts before Levi has seen step 2 on his
-phone. A step that changes how an earlier committed picture draws records it
-again and says so in the pull request: a verify failure on a picture the step
-was meant to change is recorded, never "fixed" in code.
+Small pull requests, in order. Each ships alone. Step 0 is workflow files and
+then a secret, so it is made by Levi or by a Claude session with his
+credentials (§7); once its acceptance has passed, every later step can be a
+dispatched run, started from the Actions tab (where the app context is `{}`)
+until the build of step 0b is on every dispatcher's phone: the app sends the
+map centre, and the workflow prints it in a public log. Steps 1 and 2 do not
+depend on each other and may land in either order. Nothing from step 6 on
+starts before Levi has seen step 2 on his phone. A step that changes how an
+earlier committed picture draws records it again and says so in the pull
+request: a verify failure on a picture the step was meant to change is
+recorded, never "fixed" in code.
 
 | # | Pull request | Contains | Accepted when |
 |---|---|---|---|
-| 0 | **Workflows** | The secret (§7, change 1), then one pull request with every workflow change of §7: changes 2 to 6 to `claude-dispatch.yml` and the two `ci.yml` hunks. Workflow files only. | CI is green on it. Then a dispatched run asked to add one small PNG under a scratch path and open a pull request does so: the commit is on a new branch, `main` is unchanged, the pull request exists, and it reports `gradle -v` and `cargo -V`. Its upload step ran. Note whether CI on that pull request waited for approval (§7), then close it unmerged. |
-| 1 | **Looks in Rust** | Rust `Look` and its one-file rules; `content/fixtures/look/`; `tests/look_checks/`, `tests/looks.rs`; the `looks_sheet` example with `--focus` and `--stress`; the two lists of expected ids (`server/rules/src/content/tests.rs`, `ShippedContentTest.kt`) changed from "equals these ids" to "contains the six starting ids"; the schema docs of §10; `look` in the six content files. The app ignores the field. It may land as two pull requests: 1a is everything but the `looks_sheet` example, 1b the example and README's command. CI's looks steps stay skipped until 1b, and §8 applies from 1b. | `cargo test`, `cargo fmt --check` and `cargo clippy --all-targets --locked -- -D warnings` (CI runs all three) and `gradle :engine:test` pass. CI's looks steps run instead of being skipped, and the sheet shows six units with the numbers of §4.5's table. A scratch monster file with no `look` passes both suites with no other file touched. |
-| 2 | **The camera** | `setTilesScaledToDpi(true)` on both map views; the arithmetic of §4.3 as pure functions; the Encounter opens in the fight view with the pinch range raised; `Whole board` / `Fight view` as a plain button beside `Wait`; osmdroid's zoom buttons hidden on the Encounter's map; the corrected Combat sentences (§10). No new look. The walking map still opens at zoom 19.0, so from this step it draws 2.6 times larger and softer; step 10 gives it its own camera. | `CameraMathTest` (plain JVM) holds §4.3: 34 dp per metre is zoom 22.34, 21.96 and 21.34 at 0°, 40° and 60°; the whole board is 16.03 dp per metre on a 412 dp map; a 10 m box gets 34. Then Levi opens an Encounter on his phone and reports in words: a cell is about 5 mm, the enlarged tiles are drawn, the button shows the whole board, and whether an enlarged label makes dark patches that cover most of a cell (§4.1). No screenshot of the real map is posted to the repository: it would show where he is. **If osmdroid does not draw tiles enlarged this far, stop and ask Levi** (§12 question 13). |
-| 3 | **The harness, on one screen** | Roborazzi, Robolectric, the Gradle lines, `snap()` without its `EsperTheme` wrapper, `SignInScreen` split into `SignInContent`, the first committed picture, the raster guard. | CI is green; the pull request shows `signin.png`; the record command prints `SNAP wrote app/src/test/snapshots/signin.png`; a plain `gradle :app:testDebugUnitTest` fails and prints the "Screenshots are off" message. |
-| 4 | **The theme** | `EsperColors`, `EsperTheme`, `Spec`, `Surfaces`; `ThemeContrastTest`; the colour and font guards; the launcher icon; `EsperTheme` in `snap()`; sign-in and settings restyled. The twelve colour literals left in `MapScreen.kt`, `CombatScreen.kt` and `HexGridOverlay.kt` become the theme colour of the same role at the alpha each has today (`ally` for the player's side, where it can go and the leash circle's fill; `foe` for hostiles and what it can hit; `turn` for the acting unit; `ink` for the grid, the circle's line and the attribution's text; `paper` behind the attribution), with no other change to those files. Pictures `signin`, `settings`. | All guards pass. The run counts one gold button in each picture. |
+| 0 | **Workflows** | One pull request with every workflow change of §7: changes 2 to 6 to `claude-dispatch.yml` and the two `ci.yml` hunks. Workflow files only. Then, and only once it has merged, the secret (§7, change 1). | CI is green on it. Then, with the secret added, a run started from the Actions tab and asked to add one small PNG under a scratch path and open a pull request does so: the commit is on its `ask/` branch, `main` is unchanged, the pull request exists, and it reports `gradle -v` and `cargo -V`. Its upload step ran. Note whether CI on that pull request waited for approval (§7), then close it unmerged. |
+| 0b | **Two small fixes** | Two pull requests, merged before the secret is added. The two lists of expected ids (`server/rules/src/content/tests.rs`, `ShippedContentTest.kt`) go from "equals these ids" to "contains the six starting ids". `MapState.describe()` returns the zoom alone, and README's "current map centre and zoom" becomes "current map zoom". | A scratch monster file with no `look` passes both suites with no other file touched. `Show context` on the Ask Claude screen shows no coordinates. |
+| 1 | **Looks in Rust** | Rust `Look` and its one-file rules; `content/fixtures/look/`; `tests/look_checks/`, `tests/looks.rs` (the fixture cases only); the `looks_sheet` example with `--focus` and `--stress`; the schema docs of §10; `look` in the six content files. The app ignores the field. It may land as two pull requests: 1a is everything but the `looks_sheet` example, 1b the example and README's command. CI's looks steps stay skipped until 1b, and §8 applies from 1b. | `cargo test`, `cargo fmt --check` and `cargo clippy --all-targets --locked -- -D warnings` (CI runs all three) and `gradle :engine:test` pass. CI's looks steps run instead of being skipped, and the sheet shows six units with the numbers of §4.5's table. The focus render of a scratch job with a prerequisite and no `look` is its monogram on its parent's hue. |
+| 2 | **The camera** | `setTilesScaledToDpi(true)` on both map views; the arithmetic of §4.3 as pure functions, with §5's camera block as the start of `Spec.kt`; the Encounter opens in the fight view with the pinch range raised; `Whole board` / `Fight view` as a plain button beside `Wait`; osmdroid's zoom buttons hidden on the Encounter's map; the corrected Combat sentences (§10). No new look. The walking map still opens at zoom 19.0, so from this step it draws 2.6 times larger and coarser; step 10 gives it its own camera. | `CameraMathTest` (plain JVM) holds §4.3: 34 dp per metre is zoom 22.34, 21.96 and 21.34 at 0°, 40° and 60°; the whole board is 16.03 dp per metre on a 412 dp map; a 10 m box gets 34. Then Levi opens an Encounter on his phone and reports in words: a cell is about 5 mm, the enlarged tiles are drawn, the button shows the whole board, whether an enlarged label makes dark patches that cover most of a cell (§4.1), and whether the grid still reads over the blocks (§4.2). No screenshot of the real map is posted to the repository: it would show where he is. **If osmdroid does not draw tiles enlarged this far, stop and ask Levi** (§12 question 13). |
+| 3 | **The harness, on one screen** | Roborazzi, Robolectric, the Gradle lines, `snap()` without its `EsperTheme` wrapper, `SignInScreen` split into `SignInContent`, the first committed picture, the raster guard. | CI is green; the pull request shows `signin.png`; the record command prints `SNAP wrote app/src/test/snapshots/signin.png`; a plain `gradle :app:testDebugUnitTest` fails and prints the "Screenshots are off" message. Recorded again on another runner with no code change, `git status` lists no PNG; if it does, question 4's fallback applies. |
+| 4 | **The theme** | `EsperColors`, `EsperTheme`, the rest of `Spec`, `Surfaces`; `ThemeContrastTest`; the colour and font guards; the launcher icon; `enableEdgeToEdge` (§4.4); `EsperTheme` in `snap()`; sign-in and settings restyled. The twelve colour literals left in `MapScreen.kt`, `CombatScreen.kt` and `HexGridOverlay.kt` become the theme colour of the same role at the alpha each has today (`ally` for the player's side, where it can go and the leash circle's fill; `foe` for hostiles and what it can hit; `turn` for the acting unit; `ink` for the grid, the circle's line and the attribution's text; `paper` behind the attribution), with no other change to those files. Pictures `signin`, `settings`. | All guards pass. The run counts one gold button in each picture. |
 | 5 | **The theme on every screen** | Every other screen split into `...Content` and restyled with no layout change beyond §4.6: creator, character sheet, Ask Claude, Prompts, the gates, the map screen's card. The map card is re-themed only and keeps every line it has today; step 10 moves them to the status chip and the error card and builds the card of §4.6. Pictures `creator`, `sheet`, `ask_claude`, and the artifact `sheet_font130`. `creator` and `sheet` have no plates yet; step 8 records them again. | The guards still pass. One gold button in each picture. No text is cut in `sheet_font130`. |
-| 6 | **The mat** | Tile filter and paper loading colour; `BoardScene`, `boardLayers`, `drawBoard`; tokens with monograms, HP bars, the gold ring, and every other row of §4.4's layer table but the feedback; `MainActivity` locked to portrait in the manifest. Taps still act at once. Pictures `combat_fight`, `combat_whole`, `combat_sun`, `combat_grey`, `tokens`, and the two whole-board artifacts. | The pictures match §4.4: 25.8 dp tokens whose frame says the side, 16 dp tokens on the whole board. |
+| 6 | **The mat** | Tile filter and paper loading colour; `BoardScene`, `boardLayers`, `drawBoard`, and the types of §6 they draw with (`UnitKind`, `Hue`, `Cmd`, `ResolvedLook`, and a `Looks` whose `of` returns the monogram alone until step 8); tokens with monograms, HP bars, the gold ring, and every other row of §4.4's layer table but the feedback; `MainActivity` locked to portrait in the manifest. Taps still act at once. Pictures `combat_fight`, `combat_whole`, `combat_sun`, `combat_grey`, `tokens`, and the two whole-board artifacts. | The pictures match §4.4: 25.8 dp tokens whose frame says the side, 16 dp tokens on the whole board. |
 | 7 | **The Encounter HUD** | The header and turn rail, roll tray, Encounter log, unit card, commit button, pinned row; a tap selects a cell, a target or a unit to inspect, and the button commits; TalkBack buttons, summary and announcements; `combat_font130` and the artifact `combat_states`. Records again: `combat_fight`, `combat_whole`, `combat_sun`, `combat_grey`. | `combat_states` shows the four states of §5. Plain JVM tests hold `needs N+` with its clamps at 2 and 20, the predicted strip of the fixture fight, and the `Next target` and `Next cell` orders. The log lists every unit and the last 8 events. Nothing is missing from the overflow menu. |
-| 8 | **Looks in the app** | `GlyphPath`, `Looks`, `GlyphGrammarTest`; glyphs on tokens; plates on the sheet, bestiary and creator; the bestiary entry; `bestiary_entry`; `shipped_units`. Records again, glyphs and plates replacing monograms: `creator`, `sheet`, `tokens` and the five `combat_` pictures committed so far. | `GlyphGrammarTest` passes on the fixtures of step 1. The `shipped_units` artifact shows the same units as the cargo sheet. A fixture with no `look` still draws. |
+| 8 | **Looks in the app** | `GlyphPath`, the whole of `Looks`, `GlyphGrammarTest`; glyphs on tokens; plates on the sheet, bestiary and creator; the bestiary entry; `bestiary_entry`; `shipped_units`. Records again, glyphs and plates replacing monograms: `creator`, `sheet`, `tokens` and the five `combat_` pictures committed so far. | `GlyphGrammarTest` passes on the fixtures of step 1. The `shipped_units` artifact shows the same units as the cargo sheet. A fixture with no `look` still draws; a plain test holds that a job with a prerequisite and no `look` has no glyph and its parent's hue. |
 | 9 | **Replay and dice** | `CombatReplay`, the motion table, the stills, haptics; `combat_attack_strip`, `combat_attack_still`. | The two pictures match §4.7 and show a hostile acting in the header. A plain test holds that a map tap empties the queue. |
 | 10 | **The map screen** | The walking camera, markers, status chip, the Encounter card. Pictures `map`, `map_sun`. | The picture matches §4.6; "No walking needed." is on the card. |
 
@@ -1876,7 +1872,7 @@ Each lands with the pull request that makes it true.
   whole board one tap away at about 16. On raster tiles scaled to the screen's
   density that is zoom 20 to 22.5, up to three levels past the 19 the standard
   OSM layer serves — confirm the cap against whichever tile source is chosen,
-  and expect an enlarged, soft base map under a fight either way."
+  and expect an enlarged, coarse base map under a fight either way."
 - *Tile source* (step 2). "1 m cells want zoom 20–21, at or past what the
   standard layer serves" becomes "1 m cells want zoom 20–22.5, past what the
   standard layer serves".
@@ -1889,8 +1885,9 @@ Each lands with the pull request that makes it true.
   and drops them when the Encounter ends."
 - *Visuals*: added with this document.
 
-**`app/src/main/AndroidManifest.xml`** (step 6):
-`android:screenOrientation="portrait"` on `MainActivity`.
+**`app/src/main/AndroidManifest.xml`**: `android:icon="@mipmap/ic_launcher"`
+on `<application>` (step 4); `android:screenOrientation="portrait"` on
+`MainActivity` (step 6).
 
 **`GLOSSARY.md`**: the terms Look, Glyph, Token, Frame, Plate, Mat, Fight view
 and Whole board, added with this document.
@@ -1918,8 +1915,8 @@ gains the coming turn order, each unit's reach as cells and, for the acting
 unit, the number each target needs, so the app stops computing them (§4.4).
 
 **`README.md`**: "Build locally" gains the two render commands (steps 1, 3).
-**`CLAUDE.md`**: a pointer to this file beside the one to `GAME_DESIGN.md`,
-added with this document.
+**`CLAUDE.md`**: a pointer to this file and a dispatched run's exemption from
+the staged feature workflow, added with this document.
 
 **`.github/workflows/`**: `claude-dispatch.yml` and `ci.yml`, in step 0 only.
 
@@ -1934,36 +1931,34 @@ added with this document.
   only on a plain `Test` task, outside the Android plugin. Compose and Android
   API names (`CutCornerShape`, `CanvasDrawScope`, a device font family for
   `sans-serif-condensed`, a colour-filter layer for the grey picture,
-  `statusBarsPadding`, `Density(density, fontScale)`, the Material icon names)
-  are from memory of Compose 1.7.
+  `statusBarsPadding`, `enableEdgeToEdge`, `Density(density, fontScale)`, the
+  Material icon names) are from memory of Compose 1.7.
 - **osmdroid drawing tiles enlarged to zoom 22.** Read from the osmdroid 6.1.20
   source (tile zoom is the floor of the zoom; nothing is downloaded above the
-  source's 19; lower-zoom tiles from the cache are enlarged), not seen on a
-  phone. Step 2 exists to see it before anything is built on it.
+  source's 19; lower-zoom tiles from the cache are enlarged, unsmoothed), not
+  seen on a phone. Step 2 exists to see it before anything is built on it.
 - Roborazzi 1.47.0 with Robolectric 4.14.1 on this build: versions, licences
   and Kotlin requirements were read from the published POMs, and the three
   system property names, the silent early return and the `taskType` option
   (marked experimental) from Roborazzi's source at that tag. Not compiled, not
-  run. `pixelCopyRenderMode` is from Roborazzi's README; the Robolectric
-  qualifier strings are guesses at the two phones.
-- The workflow YAML of §7 was not run on GitHub. Its `git` commands were run in
-  a scratch repository shaped like CI's checkout (a merge commit at depth 1):
-  the three-dot diff fails there, the two-dot diff lists the changed unit
-  files, and a failing fetch or diff stops the step.
-- **Anything a dispatched run does.** No dispatched run has started Claude
-  in this repository (§7). What one can do is read from the action's source
-  at `v1` (`e5812cd`), not run: the dispatch workflow commits through the
-  GitHub API (`use_commit_signing: true`); the commit tool sends a binary file
-  as a base64 blob and creates a missing branch from the base branch
-  (`src/mcp/github-file-ops-server.ts`); the branch it is given is
-  `CLAUDE_BRANCH` when set (`src/modes/agent/index.ts`). Whether a run commits
-  with that tool, and how it opens the pull request, has not been seen: step
-  0's acceptance is the first time.
+  run. `pixelCopyRenderMode` is from Roborazzi's README, `graphicsMode` from
+  Robolectric's source; the qualifier strings are guesses at the two phones.
+- The workflow YAML of §7 was not run on GitHub. Its `git` commands were run
+  in a scratch repository shaped like CI's checkout (a merge commit at depth
+  1): the three-dot diff fails there, the two-dot diff lists the changed unit
+  files, odd names included, and a failing command stops the step.
+- **Anything a dispatched run does.** No dispatched run has started Claude in
+  this repository (§7). What §7 says of the action is read from its source at
+  `v1` (`e5812cd`), not run: `src/modes/agent/index.ts` and `docs/usage.md`
+  for the branch and auto mode, `src/mcp/github-file-ops-server.ts` for the
+  commit tool, which sends a binary file as a base64 blob. Whether a run
+  commits with that tool, and how it opens the pull request, has not been
+  seen: step 0's acceptance is the first time.
 - That CI waits for approval on a pull request a dispatched run opens is from
   GitHub's documentation, which says the behaviour is still rolling out.
-- The looks checks ran here as a throwaway crate, not inside `server/rules`.
-  Whether the image build downloads the dev-dependency was not checked; it is
-  not compiled into the binary.
+- The looks checks ran here as a throwaway crate, not inside `server/rules`;
+  §4.5's table is its output. Whether the image build downloads the
+  dev-dependency was not checked; it is not compiled into the binary.
 - The colour-vision matrices (Viénot, Brettel and Mollon 1999, linear RGB;
   tritan by the same method) are quoted from memory:
   protan `[0.11238 0.88762 0; 0.11238 0.88762 0; 0.00401 -0.00401 1]`,
@@ -1980,7 +1975,7 @@ added with this document.
   will vary. Held by: the baseline stamp that looks intended with no details,
   the per-unit checks, the focus render, clipping (details cannot spill), and
   Levi merging every pull request.
-- **Crowding at 16 px.** Unrelated glyphs already score up to 63% alike. With
+- **Crowding at 16 px.** Unrelated glyphs already score up to 64% alike. With
   hundreds of looks the 75% limit will bite and may need to move. It is checked
   for changed files on pull requests only, so it can never turn `main` red.
 - **Two renderers.** The cargo pictures draw frames and plates with Rust code
@@ -1993,16 +1988,21 @@ added with this document.
   second needs a new run to record it again. A theme change does that to every
   open visual pull request. They are fixtures only, so content never touches
   them and adding a unit stays free of this.
-- **A dispatched run executes what it wrote.** `Bash(gradle:*)` and
-  `Bash(cargo:*)` let a run build and run its own code on the runner. The
-  same job holds a token that can write to the repository, the Anthropic key
-  or Claude token, and `id-token: write`, and the request text it acts on is
-  untrusted, as the workflow's own prompt says. Whether the action hands the
-  Anthropic credential to child processes was not checked. The turn limit is
-  also a spend limit, and 150 is nearly four times today's 40. That is
-  acceptable while every dispatcher is someone Levi gave repository access
-  to, and is one more thing to settle before open enrolment
-  (`GAME_DESIGN.md`, "Who is allowed to vibe-code").
+- **A dispatched run executes what it wrote.** In auto mode a run builds and
+  runs its own code on the runner whenever the action's review passes the
+  command, with or without the `gradle` and `cargo` rules. The same job holds
+  a token that can write to the repository, the Anthropic key or Claude token,
+  and `id-token: write`, and child processes inherit them (the action scrubs
+  them only when `allowed_non_write_users` is set); the request text it acts
+  on is untrusted, as the workflow's own prompt says. The turn limit is also a
+  spend limit, and 150 is nearly four times today's 40. That is acceptable
+  while every dispatcher is someone Levi gave repository access to, and is one
+  more thing to settle before open enrolment (`GAME_DESIGN.md`, "Who is
+  allowed to vibe-code").
+- **A merged look restarts the server.** Unit files are baked into its image
+  and the deploy workflow fires on any change under `content/`, so a redrawn
+  ear restarts the one replica, dropping sign-ins in flight and the positions
+  held in memory. Levi may batch look merges.
 - **Robolectric is not a phone.** Its text metrics differ; a layout that fits
   in a picture can clip on a device. Font-scale and long-name cases need a look
   on a phone.
@@ -2010,7 +2010,7 @@ added with this document.
   off screen until the camera reframes at the player's turn. The rail still
   lists it, and the whole board is one tap away.
 - **Tap, then commit, is one more tap per action** than today.
-- The enlarged raster is soft under a fight until vector tiles exist. Pillar 1
+- The enlarged raster is coarse under a fight until vector tiles exist. Pillar 1
   shows mostly on the walking map and the whole board until then.
 
 ---
@@ -2024,7 +2024,7 @@ built.
 |---|---|---|---|
 | 1 | On a token, does colour say the side and never which monster, and may every monster have a drawn face at plate size, accepting that player-added ones will be uneven? | Yes. | Colour per monster fails the one-second glance; a no to faces means stamps only and `details` is dropped. |
 | 2 | May a fight open zoomed in, with part of the board off screen and the whole board one tap away? This replaces two sentences in the settled Combat section (§10). | Yes. | Tokens stay at the 16 dp floor for the whole fight. |
-| 3 | May the Ask Claude dispatch workflow change so a run can render and look: Java, Gradle and Rust set up as in CI, 150 turns, 75 minutes, `gradle` and `cargo` allowed? Allowing those two lets a run execute code it wrote on the runner. The same job holds a token that can write to the repository, the Anthropic key or Claude token, and `id-token: write`, and the request text is untrusted; the turn limit is also a spend limit, raised from 40. Fine while you choose every dispatcher, and to be settled before open enrolment. The step also needs two things a run has never had here: the Anthropic secret, and a branch of its own, since the action's commit tool would otherwise commit to `main` (§7). A dispatched run cannot push that change; it is yours, or a session's with your credentials, to make (step 0). | Yes. | Visual pull requests are written blind and only CI's verify step catches regressions. |
+| 3 | May the Ask Claude dispatch workflow change so a run can render and look: Java, Gradle and Rust set up as in CI, 150 turns, 75 minutes, `gradle` and `cargo` allowed? A run can execute code it wrote on the runner whenever the action's review passes the command, with or without those two rules, in a job that holds a repository write token and the Anthropic credential and acts on untrusted request text; the turn limit is also a spend limit, raised from 40 (§11). Fine while you choose every dispatcher, and to be settled before open enrolment. The step also needs two things a run has never had here: the Anthropic secret, and a branch of its own, since the action's commit tool would otherwise commit to `main` (§7). A dispatched run cannot push that change; it is yours, or a session's with your credentials, to make (step 0). | Yes. | Visual pull requests are written blind and only CI's verify step catches regressions. |
 | 4 | Are committed reference pictures acceptable if they show fixture screens only, with every per-unit picture a CI artifact? | Yes, knowing the cost: two open pull requests that redraw one screen collide on its PNG, and the second needs a new run to record it again. | All pictures become artifacts; CI can still compare against `main`, reviewers lose image diffs. |
 | 5 | Survey ink: may the app keep the safety-check geometry in memory during an Encounter to draw real paths, water and buildings? | Not yet. Optional later step. | If yes: write the sentence in "Why the app asks for location" first. |
 | 6 | Does gold mean acting now and the one primary action, and nothing else? | Yes. | If gold may also mark a natural 20 or the Encounter pin, say which. |
