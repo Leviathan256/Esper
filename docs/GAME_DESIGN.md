@@ -498,15 +498,15 @@ character and not with the job instance.
 How the game looks is designed in [`docs/VISUALS.md`](VISUALS.md), with every
 colour, size and path a run needs and the way to render and check its work. A
 run reads the part it needs, by section title: "Adding a look" and "Tier 1"
-for a new or changed unit; for anything else on screen, that screen's part of
-"The look", then "Constants" and "Tier 2". None of it is built yet; its
-rollout section is the order. These are its hard rules, here because every run
-reads this file. A rule binds from the rollout step that builds what it is
-checked with: looks from step 1 (until that is on `main`, no content file
-carries `look`), the camera from step 2, render and look from steps 0 and 3,
-colours from step 4.
-Before that, a run follows the rule where it can and says in the pull request
-what it could not do.
+for a new or changed unit; for the theme (a colour, a size) or a screen, that
+part of "The look", then "Fixtures" and "Tier 2"; for a rollout step, its row
+in "Rollout". It is built in the order of that section, and the Systems table
+below says how far. These are its hard rules, here because every run reads
+this file. A rule binds from the rollout step that builds what it is checked
+with: looks from step 1 (until that is on `main`, no content file carries
+`look`), the camera from step 2, render and look from steps 0 and 3, colours
+from step 4. Before that, a run follows the rule where it can and says in the
+pull request what it could not do.
 
 1. **On the board, colour says whose side a unit is on, never which monster it
    is.** The frame says it too: a circle for your party, a diamond for
@@ -515,8 +515,7 @@ what it could not do.
    else is gold.
 3. **A unit's look is data**: the `look` object in its own content file, drawn
    from path text. A unit with no `look` still draws and plays. A look never
-   refers to another unit's file; the one inheritance is a job from its first
-   prerequisite.
+   refers to another file.
 4. No raster image under `app/src/main/res`, no bundled font, and no colour
    written outside `ui/theme/EsperColors.kt` (the launcher icon's colours in
    `res/values/colors.xml` excepted).
