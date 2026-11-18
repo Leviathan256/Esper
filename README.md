@@ -207,6 +207,11 @@ gradle :server:test
 (cd server && cargo test)
 # After adding or changing a sqlx::query! macro, refresh .sqlx/ against a migrated database:
 (cd server && DATABASE_URL=postgres://… SQLX_OFFLINE_DIR="$PWD/.sqlx" cargo build)
+# Every shipped look as a sheet with its numbers, in server/target/looks/sheet.png;
+# then one unit's plate, raster and tokens beside the three looks most alike to it
+# (docs/VISUALS.md §7 and §8):
+(cd server && cargo run --locked -p rules --example looks_sheet -- ../content target/looks)
+(cd server && cargo run --locked -p rules --example looks_sheet -- ../content target/looks --focus monsters/goblin.json)
 
 # The Android app needs the Android SDK, and CI builds it:
 gradle :app:assembleRelease

@@ -1055,10 +1055,9 @@ fun DrawScope.drawBoard(layers: List<Layer>, camera: BoardCamera, looks: Looks)
 |---|---|---|---|---|
 | `io.github.takahirom.roborazzi:roborazzi` and `:roborazzi-compose` | `1.47.0` | `testImplementation` in `:app` | Apache-2.0 | Renders real Compose screens to PNG on the JVM. 1.47.0 is the last release built against Kotlin 1.9 (its POM asks for kotlin-stdlib 1.9.22; 1.48.0 asks for 2.0.21), so the Kotlin 1.9.25 and Compose compiler 1.5.15 pairing is untouched. Brings `androidx.test:core` through espresso-core 3.5.1. |
 | `org.robolectric:robolectric` | `4.14.1` | `testImplementation` in `:app` | MIT | Android graphics without an emulator. The version Roborazzi 1.47.0's own build pins (with Compose UI 1.7.6; this app's BOM gives 1.7.5). Tests run at SDK 34, where every signed-in player is. |
-| `tiny-skia` | `=0.12.0` | `[dev-dependencies]` of `server/rules` | BSD-3-Clause | Pure-Rust rasteriser for the looks sheet and its checks. Never linked into the server. |
 
-Checked against Maven Central, crates.io and Roborazzi's repository at tag
-1.47.0 on 2026-11-18: all three exist at these versions, with these licences
+Checked against Maven Central and Roborazzi's repository at tag
+1.47.0 on 2026-11-18: both exist at these versions, with these licences
 and the Kotlin, Robolectric and Compose versions stated. Not added:
 the Roborazzi Gradle plugin (a few lines forward what it would, below), fonts,
 image loaders, animation libraries, Paparazzi.
@@ -1641,12 +1640,11 @@ and Whole board, added with this document.
 why a look is path text in the unit's own file and colour says the side, added
 with this document.
 
-**`docs/SERVER.md`** (step 1b): §2's table gains `rules/examples/looks_sheet.rs`;
-§3's expected crates gain the dev-dependency. With server combat (§14 step 2): the combat state the server sends
+**`docs/SERVER.md`**, with server combat (§14 step 2): the combat state the server sends
 gains the coming turn order, each unit's reach as cells and, for the acting
 unit, the number each target needs, so the app stops computing them (§4.4).
 
-**`README.md`**: "Build locally" gains the two render commands (steps 1, 3).
+**`README.md`**: "Build locally" gains the screen record command (step 3).
 **`CLAUDE.md`**: a pointer to this file, added with this document.
 
 **`.github/workflows/`**: `claude-dispatch.yml` and `ci.yml`, in step 0 only.
