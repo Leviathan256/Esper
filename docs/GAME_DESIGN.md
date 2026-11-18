@@ -501,7 +501,8 @@ run that draws anything reads that file first. None of it is built yet; its
 rollout section is the order. These are its hard rules, here because every run
 reads this file. A rule binds from the rollout step that builds what it is
 checked with: looks from step 1 (until that is on `main`, no content file
-carries `look`), render and look from steps 0 and 3, colours from step 4.
+carries `look`), the camera from step 2, render and look from steps 0 and 3,
+colours from step 4.
 Before that, a run follows the rule where it can and says in the pull request
 what it could not do.
 
@@ -532,8 +533,10 @@ what it could not do.
 8. **An Encounter never waits on a tile.** The paper ground, the board and
    the HUD draw with tiles slow, missing or blank.
 9. Nothing is said by colour alone. Text in an Encounter is 14 sp or more
-   (the map attribution is 12 sp, and a die's number is drawn at 14 dp or
-   more), a touch target is 48 dp or more, and the contrast floors are a test.
+   (the map attribution is 12 sp, a die's number is drawn at 14 dp or more,
+   and a monogram is sized with its token), every button and control is 48 dp
+   or more (a cell is smaller, which is why a map tap only selects), and the
+   contrast floors are a test.
 10. Motion never blocks input and never loops (the loading spinner excepted):
     one flash per event, at most three a second, and with animations off every
     event is a still.
