@@ -1,6 +1,6 @@
 # A unit's look is path text in its own content file, and colour on the board says whose side
 
-Esper has no artist and no image model: a look has to be something a Claude Code run can write as text and check by rendering it. So a unit's look is a `look` object inside its own job or monster file: a glyph in a small path grammar (absolute `M L Q C Z` in a 24-unit box, filled even-odd), a named hue, and optional detail paths. The app draws it as a token whose frame and colour say whose side the unit is on, and as a plate at bestiary size. A look never refers to another unit's file, except that a job takes what it does not give from its first prerequisite. The full design is `docs/VISUALS.md`.
+Esper has no artist and no image model: a look has to be something a Claude Code run can write as text and check by rendering it. So a unit's look is a `look` object inside its own job or monster file: a glyph in a small path grammar (absolute `M L Q C Z` in a 24-unit box, filled even-odd), a named hue, and optional detail paths. The app draws it as a token whose frame and colour say whose side the unit is on, and as a plate at bestiary size. A look never refers to another unit's file, except that a job takes from its first prerequisite the glyph it does not give, with the details drawn for it, and the hue it does not give. The full design is `docs/VISUALS.md`.
 
 ## Considered Options
 

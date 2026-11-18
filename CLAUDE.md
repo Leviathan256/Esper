@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for AI coding agents in this repo. See `README.md` for the build and release loop, and `docs/GAME_DESIGN.md` for the game.
+Guidance for AI coding agents in this repo. See `README.md` for the build and release loop, `docs/GAME_DESIGN.md` for the game, and `docs/VISUALS.md` for anything drawn on screen.
 
 ## Agent skills
 

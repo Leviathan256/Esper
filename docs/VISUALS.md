@@ -113,11 +113,11 @@ player's colours, and many monsters shared one silhouette. B lost on HP as fill
 Taken from B: the camera as its own early pull request; the move range as one
 outlined region; target brackets; the 16 dp token floor; the deeper side
 colours; the predicted next-to-act strip; the sun-veil render; even-odd glyphs;
-stateless `...Content(state)` screens; "a fight never waits on a tile"; "No
-walking needed". Taken from C: dice on the map with a still for animations off;
-job lineage; the fallback from the id; the focus render; colour-vision rows; the
-replay queue and the board as layers; the rule that content never touches a
-shared picture; the Visuals section in `GAME_DESIGN.md`.
+stateless `...Content(state)` screens; "an Encounter never waits on a tile";
+"No walking needed". Taken from C: dice on the map with a still for animations
+off; job lineage; the fallback from the id; the focus render; colour-vision
+rows; the replay queue and the board as layers; the rule that content never
+touches a shared picture; the Visuals section in `GAME_DESIGN.md`.
 
 Dropped early: creatures drawn in Kotlin (a monster would be code), shader
 looks (cannot be rendered in CI, wash out in sun), a third-party icon set
@@ -229,6 +229,14 @@ Material 3 slots: `headlineMedium` display 28/34, `titleLarge` display 22/28,
   the map sit on a 5.5 dp `paper` halo.
 - No elevation, no blur, no gradient, no transparency over text.
 
+**Icons** are Material icons from the set the app already depends on
+(`material-icons-extended`), tinted `ink`: `ArrowBack`, `Person`,
+`AutoAwesome` and `Settings` in the top bar, as today; `LocationOn` or
+`LocationOff` on the map's status chip; `Check` on a chosen card;
+`CheckCircle`, `ErrorOutline` or `Schedule` on an Ask Claude run card. The
+mockups draw stand-ins for them. The app draws only the two marks of the
+Encounter header (§4.4) itself.
+
 **Material 3 scheme** (for anything not yet using the Esper components):
 `primary` `ink`, `onPrimary` `paper`, `secondary` `ally`, `tertiary` `esper`,
 `error` `foe`, `on*` of those `paper`; `background`, `surface` and every
@@ -254,7 +262,7 @@ The map is the mat, so it is quietened, never hidden.
    it. Past zoom 19 the tiles are enlarged about 20 times and are only soft
    colour fields; the wash makes that a deliberate "paper over the map".
 
-**A fight never waits on a tile.** osmdroid downloads nothing above the
+**An Encounter never waits on a tile.** osmdroid downloads nothing above the
 source's zoom 19 and only enlarges tiles already in the phone's cache. With
 tiles slow, missing or blank, the paper ground, the board and the HUD draw
 anyway, because the board is an overlay and needs only the anchor and the scale.
@@ -294,8 +302,8 @@ zoom = log2(dpPerMetre * 40075016.686 * cos(latitude) / 256)
 - **Walking.** `zoom = zoomFor(6 dp per metre)` at the leash centre. 6 is the
   largest round scale whose tile zoom (the integer part) stays at 19 or lower at
   every latitude, which is the highest zoom the tile source serves. The map
-  screen sets `maxZoomLevel = 19.99` (today it is unset and clamps to 19.0), so
-  a pinch never asks for tiles that cannot be downloaded. It is the zoom
+  screen sets `maxZoomLevel = 19.99`, so a pinch never asks for tiles that
+  cannot be downloaded. It is the zoom
   `MapScreen` eases to on the first leash centre, where it uses 19.0 today.
 - **Fight view** (how an Encounter opens). Take the box around every living
   unit's cell centre and every cell the acting unit can reach, grown by 1.0 m on
@@ -334,13 +342,14 @@ across its flats.
 | 7 | Reach, under-line | the `paper` line of a reach outline (§"Ranges" below) |
 | 8 | Move range | §"Ranges" |
 | 9 | Reach, dashes | the `foe` dashes of the same outline, after the move range: on an edge the two outlines share, the dashes lie on the solid line and both show |
-| 10 | Chosen cell, chosen target | §"Ranges" |
+| 10 | Chosen cell, chosen target | their fills, §"Ranges" |
 | 11 | Defeated marks | an `ink` cross at 45%, arms 0.18 `s`, 2 dp |
-| 12 | Brackets | around every unit the acting unit can hit |
+| 12 | Brackets | open around every unit the acting unit can hit, closed into a square around the chosen target |
 | 13 | Move preview | the acting unit's whole token, outline included, at 50% opacity on the chosen cell |
 | 14 | Tokens | sorted north to south, then west to east; the acting unit's gold ring under its token |
 | 15 | HP bars | all bars after all tokens, so a neighbour never hides one |
-| 16 | Feedback | dice, numbers (§4.7) |
+| 16 | Inspected pointer | above the inspected unit's token, after the bars, so nothing hides it |
+| 17 | Feedback | dice, numbers (§4.7) |
 
 **Cells.** Pointy-top, 1 m across flats, exactly the engine's `HexMetrics`:
 centre of `(q, r)` is `east = q + r/2`, `north = r * 0.8660`; corner `i` is at
@@ -361,11 +370,14 @@ segment; nothing needs to be chained into a loop.
 | Where the acting unit can move | `ally` at 16% on the reachable cells | one outline around reachable cells plus the unit's own cell: `ally` 2.5 dp on a `paper` 5.5 dp halo, round caps; an `ally` dot in every reachable cell, diameter `clamp(0.085 s, 2, 3.2)` dp |
 | Chosen cell | `ally` at 30% | the cell's outline, `ally` 2.5 dp on the halo; the move preview token |
 | Unit in reach | none | four corner brackets on a square of side `max(s, 1.3 T)` centred on the unit: arms 0.27 of the side, `foe` 2.5 dp on the halo, square caps |
-| Chosen target | `foe` at 30% on its cell | the brackets stay |
-| Reach of an attack with range over 1 | none | outline of the cells of the board within `attackRangeCells` of the unit (hex distance), its own cell included: `foe` 2 dp dashed 6 on 4 off, butt caps, on a solid `paper` 4 dp line. The dashes restart on every edge. Drawn for the acting unit when its `attackRangeCells > 1`, and for any unit the player is inspecting |
+| Chosen target | `foe` at 30% on its cell | its brackets close: all four sides of the same square, same line and halo. Every other unit in reach keeps open brackets |
+| Inspected unit | none | an `ink` pointer above its token: a triangle 10 dp wide and 7 dp high, point down, the point `0.62 T + 3` dp above the token's centre, with a 1.5 dp `paper` edge; and its reach, next row |
+| Reach of an attack | none | outline of the cells of the board within `attackRangeCells` of the unit (hex distance), its own cell included: `foe` 2 dp dashed 6 on 4 off, butt caps, on a solid `paper` 4 dp line. The dashes restart on every edge. Drawn for the acting unit when its `attackRangeCells > 1`, and for the inspected unit whatever its range |
 
 Every state has a shape or a pattern as well as a colour: a line with dots, a
-filled cell with a ghost, brackets, dashes.
+filled cell with a ghost, open brackets, a closed square, a pointer, dashes.
+The fill under the chosen target is a bonus: at 1.3:1 against the move wash it
+carries nothing by itself.
 
 **Tokens on the board.** Size `T = max(16, 0.76 s)`: 25.8 dp in the fight
 view, 16 dp on the whole board. The token is centred on its cell. At the 16 dp
@@ -389,15 +401,25 @@ question 10). Candidates are the reachable cells, the units in reach and every
 other unit. The tap picks the candidate whose centre is nearest, if it is
 within 1.0 m; otherwise it clears the selection. A reachable cell becomes the
 chosen cell, a unit in reach the chosen target, any other unit is inspected:
-the unit card shows it and its reach is drawn.
+the unit card shows it in place of the acting unit, and the map marks it with
+the pointer and its reach.
 
 **The header and the turn rail** (72 dp, `paper`, 1.5 dp `ink` line below).
 On the Encounter route this replaces the scaffold's top bar; the semantic pane
-title stays "Encounter".
+title stays "Encounter". Today's `TopAppBar` pads itself below the status bar;
+this header must do it (`statusBarsPadding()`), and the bottom panel must stay
+above the navigation bar (`navigationBarsPadding()`): the app targets SDK 35,
+so on Android 15 it is drawn edge to edge. Positions below are from the
+header's own top left corner.
 
-- Back, 48 dp, left: an `ink` chevron, 2.5 dp. Overflow menu, 48 dp, right
-  (three 4 dp `ink` squares): Character, Ask Claude, Settings, the three
-  actions the top bar holds today.
+- Back, a 48 dp box at the left: an `ink` chevron 8 dp wide and 14 dp high,
+  2.5 dp, square caps, centred at (24, 36). It calls the back dispatcher, as
+  the top bar's arrow does in `MainActivity`, and never `popBackStack()`: the
+  Encounter's `BackHandler` is what settles a finished Encounter.
+- Overflow menu, a 48 dp box at the right: three 4 dp `ink` squares 6 dp
+  apart, one above the other, centred in the box at y = 36. It holds
+  Character, Ask Claude and Settings, the three actions the top bar holds
+  today.
 - **Acting now:** the acting unit's token with its gold ring, centred at
   x = 74 on the rail line (y = 42). The token is 36 dp, or 30 dp when its frame
   is a diamond, so the ring is at most 47.2 dp high in any frame and clears
@@ -406,12 +428,13 @@ title stays "Encounter".
   with the unit's name. Left edge at x = 52, baseline at y = 14. A long name
   runs on above the strip, whose chips start at y = 22, and is cut with an
   ellipsis 4 dp before the overflow button.
-- **The rail line:** 1 dp, `line`, from x = 104 to the overflow button, with
-  an `ink` chevron (4 x 8 dp, 2 dp, square caps) at x = 106.
+- **The rail line:** 1 dp, `line`, from x = 104 to the overflow button
+  (x = 364 on the reference phone), with an `ink` chevron (4 x 8 dp, 2 dp,
+  square caps) at x = 106.
 - **Next to act:** the coming turns in order as 28 dp tokens, first at
   x = 136, one every 40 dp, as many as fit before the overflow button and at
-  most 6. A fast unit appears more often. Party tokens sit 6 dp above the rail
-  line, hostiles 6 dp below it, so position also says the side.
+  most 6. A fast unit appears more often. A party token's centre is 6 dp above
+  the rail line, a hostile's 6 dp below it, so position also says the side.
 - Under the first appearance in the strip of every unit but the acting one:
   its real gauge, a 24 x 4 dp `ink` bar whose top is 24 dp below the rail line,
   with a `paper` fill of `gauge / 100` inset 0.75 dp.
@@ -429,6 +452,8 @@ Both states of the header are drawn at true size at the foot of the identity
 sheet (§4.1).
 
 **The bottom panel** (`paper`, 1.5 dp `ink` line above, 8 dp padding and gaps).
+Every height below is a minimum: a surface grows with its text and never
+clips it.
 
 - **Roll tray**, 48 dp, drawn as a secondary button (`paper`, cut 6, the
   outline and the foot) because it is one. Two groups on one line. The roll:
@@ -445,12 +470,16 @@ sheet (§4.1).
   holds what the screen lists today, restyled: every unit (token 28 dp, name,
   `HP 9 / 9`, its gauge as a bar, `acting` or `down` where it applies) and the
   last 8 events as the sentences the app writes today ("Wolf hit Mara for 4
-  (HP 10)."). A `Close` button, or Back, returns to the panel.
+  (HP 10)."), but for the last one, which becomes `Encounter ended: victory.`
+  or `Encounter ended: defeat.` A `Close` button, or Back, returns to the
+  panel.
 - **Unit card**, 60 dp. Left: the acting (or inspected) unit: token 44 dp, name
   (display 19), `Squire · Lv 2` (HUD 14, `inkSoft`), an HP bar 112 x 12 dp,
-  `HP 10 / 14`, `AC 12`. Right, after a `line` divider at x = 232, the chosen
-  target: token 32 dp with its HP bar, name, `HP 9 / 9 · AC 12`, `TARGET`
-  (HUD 14, `foe`).
+  `HP 10 / 14`, `AC 12`. The card splits 56 : 44 by weight, with a `line`
+  divider between the halves (x = 232 on the reference phone). Right of it,
+  the chosen target: token 32 dp with its HP bar, name, `HP 9 / 9 · AC 12`,
+  `TARGET` (HUD 14, `foe`). On a narrow screen `· AC 12` wraps to its own
+  line.
 - **Commit button**, 56 dp, full width, the only gold on the panel. It says
   what it will do (HUD 20) and what the dice need (HUD 14):
 
@@ -511,8 +540,8 @@ token's centre. Strokes are centred on the frame path.
 - Glyph: the look's path scaled from its 24-unit box to the glyph box, filled
   `paper`, **even-odd**, so eyes and slits are holes showing the side colour.
 - Tokens never draw `details`, never have a foot, and have no halo on the mat.
-  On the walking map, where there is no wash, a token gets a `paper` ring
-  `w + 3` dp wide behind its outline.
+  On the walking map, where there is no wash, the frame path is first stroked
+  `paper`, `w + 3` dp wide, so 1.5 dp of paper shows around the outline.
 - Hit flash: fill and glyph colours swap (`paper` frame, side-coloured glyph).
 
 | Where | `T` (dp) |
@@ -526,6 +555,9 @@ token's centre. Strokes are centred on the frame path.
 | Walking map: your character | 28 |
 
 **The look, as data.** Optional on jobs and monsters; `schemaVersion` stays 1.
+Rollout step 1 moves the field table, the path grammar and the resolving rules
+below into `content/schema/look.schema.md` and leaves a link here, so they
+have one home.
 
 ```json
 "look": {
@@ -585,14 +617,29 @@ number  = 1 or 2 digits, optionally "." and 1 or 2 digits, value 0 to 24
    `prerequisites[0]`; else `HUES[fnv1a32(id) % 8]` with `HUES` in the order
    listed in §4.1 and FNV-1a over the id's UTF-8 bytes (offset `0x811C9DC5`,
    prime `0x01000193`).
-3. `details`: `u.look.details` if not empty; else, for a job, the resolved
-   details of `prerequisites[0]`; else none. Tone `hue` is the resolving unit's
-   hue, so an inherited plate recolours itself.
+3. `details`: `u.look.details` if not empty; else, for a job that gives no
+   `glyph`, the resolved details of `prerequisites[0]`; else none. Details
+   travel with the glyph they were drawn for. Tone `hue` is the resolving
+   unit's hue, so an inherited plate recolours itself.
 
-**Job lineage.** A job takes its look from its first prerequisite and adds one
-mark, so a job line reads as a family and Pillar 4 is visible. `knight.json`
-carries only two pips and a hue; on the board a knight is the squire's sword
-with a pip on each side.
+**Job lineage.** A job with a prerequisite gets its glyph in one of two ways.
+What decides is whether its people carry what its parent's people carry.
+
+- **The same emblem, upgraded: a `mark`.** The job gives no glyph and adds a
+  mark to the one it inherits, so the two read as a family and Pillar 4 is
+  visible. `knight.json` carries only two pips and a hue; on the board a
+  knight is the squire's sword with a pip on each side.
+- **Something else: its own `glyph`.** An archer's bow is not a sword with
+  something beside it. The job draws a glyph like any starting job and is
+  checked like one. From its parent it takes only a hue, if it gives none.
+
+Two units are **in line** when one takes its glyph from the other, directly or
+through the jobs between them: knight and squire. Units in line are meant to
+look alike, so the alike check (§7) excuses them. Two jobs that each add a
+mark to the same glyph are not in line with each other and are compared like
+strangers. A second mark on one glyph seldom passes (squire's sword with
+knight's pips, and the same sword with a bow and an arrow beside it, measured
+84% alike), and that is the sign to draw a glyph of its own.
 
 **One file per unit, and no borrowing.** A look is always inline in its own
 file. The one inheritance is a job from its first prerequisite, a link the
@@ -614,8 +661,8 @@ creator. `P` is the plate's height: 56, 104 or 156 dp.
    drawn `P/32` right and `P/32` down of the centre. Off-register on purpose.
 2. The figure, in a box of side `0.52 P` centred on the plate:
    - the glyph filled `ink`, even-odd: an ink stamp;
-   - each detail, in order, filled with its tone and **clipped to the glyph**
-     (even-odd);
+   - each detail, in order, filled with its tone and **clipped to the
+     resolved glyph**, a mark included (even-odd);
    - the glyph stroked `ink`, 0.9 box units wide, round joins.
 3. Frame: the same hexagon on the centre, no fill, `ink` stroke
    `max(1.5, P/40)` dp.
@@ -624,8 +671,11 @@ A glyph with no details is an ink stamp on its tint, with its holes showing
 the tint: it looks intended, and it is the baseline every unit gets. Details
 are colour printed over the stamp. Because they are clipped and the outline is
 struck again on top, a detail never has to follow the glyph's edge: a full-box
-rectangle in tone `hue` colours the whole creature. Plates have no ground
-shadow and no hatch.
+rectangle in tone `hue` colours the whole creature. A mark has no colour of
+its own: it prints whatever the details put under it. With squire's details,
+knight's left pip prints `paper` and its right pip crimson. A job that wants
+its mark coloured gives its own `details`, which replace its parent's list
+whole. Plates have no ground shadow and no hatch.
 
 **The six starting looks**, exactly as rollout step 1 puts them into the
 content files. From then on the content files are the source and this listing
@@ -672,7 +722,7 @@ Checked with the pinned rasteriser (tiny-skia 0.12.0, the checks of §7):
 | wolf | 18 | 3 | 35.9% | 37.0% | goblin 53% |
 | apprentice | 10 | 2 | 35.2% | 47.8% | slime 63% |
 | squire | 16 | 1 | 35.2% | 53.3% | apprentice 61% |
-| knight (squire + mark) | 22 | 3 | 39.8% | 49.0% | apprentice 55% (squire 88%, its own line, exempt) |
+| knight (squire + mark) | 22 | 3 | 39.8% | 49.0% | apprentice 55% (squire 88%: in line, excused) |
 
 ### 4.6 Screens
 
@@ -688,7 +738,7 @@ move into the Encounter log behind the roll tray (§4.4). The one text that
 goes is the map screen's headline, which is question 11 of §12.
 
 **Top bar** (every route but the Encounter): 64 dp, `paper`, 1.5 dp `ink` line
-below, the title in display 22, `ink` icons.
+below, the title in display 22, the icons of §4.1.
 
 **Map** (first screen).
 
@@ -706,10 +756,13 @@ below, the title in display 22, `ink` icons.
   there instead.
 - The Encounter: a 64 x 34 dp `paper` card with a foot holding up to two of its
   monsters as 22 dp hostile tokens (`+N` for more), with an `ink` pointer down
-  to the anchor.
-- A status chip, top left, 8 dp in: a pin icon and `Location on`, or
-  `Location off: the circle follows the map`. Sync and content errors are a
-  `foe`-outlined card under it with the sentence the app shows today.
+  to the anchor. When the anchor is south of the leash centre the card goes
+  under the anchor with the pointer up, so it does not lie over your
+  character. Your character and its name tag are drawn after the card.
+- A status chip, top left, 8 dp in: `LocationOn` and `Location on`, or
+  `LocationOff` and `Location off: the circle follows the map`. Sync and
+  content errors are a `foe`-outlined card under it with the sentence the app
+  shows today.
 - **The card:** the monsters' tokens at 28 dp; their names (display 19),
   "Goblin and Wolf"; then one line (body 14, `inkSoft`):
   `8 m away, inside your circle. No walking needed.`, or outside the circle
@@ -740,9 +793,9 @@ tick, and stays a radio button for TalkBack. A gold `Begin`.
   `Squire · Level 2` (HUD 16), an XP bar (12 dp: an `esper` fill on a
   `paperDim` track with a 1.5 dp `ink` outline), `XP 180 / 300` in `esper`. At
   the highest level: a full bar and `XP 2400 · max level`.
-- Stat tiles (`paperDim` wells, 46 dp, cut 4): label HUD 12 `inkSoft`, value
-  HUD 20. Row of four: HP, AC, Attack, Damage. Row of three: Speed, Move,
-  Range. Move and Range are shown in metres: a cell is one metre.
+- Stat tiles (`paperDim` wells, 46 dp or more, cut 4): label HUD 12
+  `inkSoft`, value HUD 20. Row of four: HP, AC, Attack, Damage. Row of three:
+  Speed, Move, Range. Move and Range are shown in metres: a cell is one metre.
 - Ability scores: six tiles, score HUD 20, modifier HUD 12.
 - Jobs: a row for the current job, then one for every other job the
   character has job points in or has unlocked: plate 56 dp, name, a job-point
@@ -816,26 +869,33 @@ from a queue.
 
 - **Colour vision.** Nothing is said by colour alone. Where hue separates two
   things, a second cue is declared and tested (`ThemeContrastTest`): each pair
-  in the table is simulated for protan, deutan and tritan vision and as grey,
-  and a pair whose CIE76 distance falls under 25 in any of them must name its
-  second cue.
+  in the table is simulated for protan, deutan and tritan vision (the matrices
+  of §11, on linear RGB) and as grey (each colour as the grey of the same WCAG
+  luminance), and a pair whose CIE76 distance falls under 25 in any of them
+  must name its second cue. The test holds that rule. The distances are
+  rounded and are not asserted.
 
   | Pair | Weakest case (distance) | Second cue |
   |---|---|---|
   | `ally` / `foe` | grey (3) | frame shape; rail position |
-  | `ally` / `neutral` | tritan (18) | frame shape |
-  | `foe` / `neutral` | protan (37) | frame shape |
-  | `ally` / `esper` | protan (10) | never side by side; bars are labelled XP or Job points |
+  | `ally` / `neutral` | grey (1) | frame shape |
+  | `foe` / `neutral` | grey (2) | frame shape |
+  | `ally` / `esper` | grey (1) | never side by side; bars are labelled XP or Job points |
   | move range / reach | | solid line with dots / brackets or dashes |
+  | unit in reach / chosen target | | open brackets / a closed square |
+  | acting / inspected | | a gold ring / an ink pointer and a dashed reach |
   | HP | | length and a number |
   | hit / miss | | a word on a stamp |
   | plate hues | several pairs merge | the glyph and the name; hue never identifies a unit |
 
   ![The fight view with no colour](visuals/fight-view-grey.svg)
 
-- **Text.** Sizes are sp and follow the system font scale. At scale 1.3 the
+- **Text.** Sizes are sp and follow the system font scale. A height given for
+  a surface that holds text (a tray, a card, a button, a stat tile) is a
+  minimum: the surface grows and the text is never clipped. At scale 1.3 the
   roll tray's result wraps to a second line, the panel grows, and the commit
-  button and pinned row stay put (snapshot `combat_font130`).
+  button and pinned row stay put (pictures `combat_font130` and
+  `sheet_font130`).
 - **Touch.** Every target is 48 dp or more. Map taps select and never commit.
   A pinch gives bigger cells to anyone who needs them.
 - **TalkBack.** The map view is hidden from accessibility and replaced by one
@@ -892,7 +952,8 @@ and the app cannot drift apart.
 | Emphasis line / halo | 2.5 dp / 5.5 dp `paper` |
 | Move dot | `clamp(0.085 s, 2, 3.2)` dp, `ally` |
 | Chosen cell fill / chosen target fill | `ally` at 0.30 / `foe` at 0.30 |
-| Brackets | square of side `max(s, 1.3 T)`, arms 0.27 of the side |
+| Brackets | square of side `max(s, 1.3 T)`, arms 0.27 of the side; all four sides whole around the chosen target |
+| Inspected pointer | `ink` triangle 10 x 7 dp, point down, the point `0.62 T + 3` dp above the token's centre, 1.5 dp `paper` edge |
 | Reach line | `foe` 2 dp, dash 6 on 4 off restarting on every edge, butt caps, on a solid `paper` 4 dp line |
 | Defeated mark | arms 0.18 `s`, `ink` at 0.45, 2 dp |
 | Tap snap | 1.0 m |
@@ -909,7 +970,7 @@ and the app cannot drift apart.
 | Square side, corner | `0.86 T`, `0.14 T` |
 | Glyph box: circle, diamond, square | `0.66 T`, `0.60 T`, `0.62 T` |
 | Monogram | HUD, 0.85 of the glyph box, baseline 0.30 of the glyph box below centre |
-| Walking-map halo | `paper`, `w + 3` dp |
+| Walking-map halo | the frame path stroked `paper`, `w + 3` dp wide, under the outline |
 | HP bar | width `0.75 T`, height `max(3, 0.16 T)`, top `0.56 T + 1` below centre, inset 0.75 dp, minimum fill 1.5 dp |
 | Gold ring | frame scaled 1.26; `turn` `max(2, 0.09 T)` dp over `ink` 2 dp wider |
 | Move preview | the whole token at 0.50 opacity |
@@ -944,11 +1005,14 @@ and the app cannot drift apart.
 | Rail line y; acting token x; first chip x; chip pitch | 42; 74; 136; 40 dp |
 | Acting token | 36 dp; 30 dp for a diamond |
 | Rail label | HUD 14 sp, left edge x = 52, baseline y = 14, ellipsis 4 dp before the overflow button |
-| Rail line; chevron | 1 dp `line` from x = 104 to the overflow button; 4 x 8 dp at x = 106, `ink` 2 dp |
-| Rail offsets | ally -6, hostile +6 dp; gauge bar 24 x 4 dp, top at line + 24, fill inset 0.75 dp |
+| Rail line; chevron | 1 dp `line` from x = 104 to the overflow button (x = 364); 4 x 8 dp at x = 106, `ink` 2 dp |
+| Rail offsets | token centre: ally -6, hostile +6 dp from the line; gauge bar 24 x 4 dp, top at line + 24, fill inset 0.75 dp |
 | Rail chips | at most 6 |
+| Header buttons | 48 dp boxes at both ends, marks centred at y = 36: Back chevron 8 x 14 dp, `ink` 2.5 dp; overflow three 4 dp squares 6 dp apart |
 | Panel padding and gaps | 8 dp |
-| Roll tray / unit card / commit / pinned row | 48 / 60 / 56 / 48 dp |
+| Roll tray / unit card / commit / pinned row | 48 / 60 / 56 / 48 dp, each a minimum |
+| Unit card halves | 56 : 44 by weight |
+| Stat tile | 46 dp, a minimum |
 | Foot | 3 dp |
 | Cut corners | cards 8, buttons, chips, fields 6, tags, stamps, tiles 4 dp |
 | Touch target | 48 dp or more |
@@ -960,9 +1024,9 @@ next event at 700; ring 420; defeat 300; ghost 600; still 1200; flash spacing
 
 **Look checks**: segments 40 (glyph), 12 (mark), 16 (a detail); subpaths 6;
 details 6; cut corner 4 units; raster 16 px; ink is alpha >= 128; coverage
-0.22 to 0.62 (aim for 0.33 to 0.45); erosion survival >= 0.35; bounding box
->= 10 px each way; mark >= 6 px with <= 10% on the inherited glyph; similarity
-limit 0.75.
+0.22 to 0.62 (aim for 0.33 to 0.45, to 0.50 with a mark); erosion survival
+>= 0.35; bounding box >= 10 px each way; mark >= 6 px with <= 10% on the
+inherited glyph; similarity limit 0.75.
 
 **Fixture Town.** The only ground in any test, artifact or committed picture.
 Metres east and north of the Encounter anchor, drawn in this order. Colours
@@ -1000,7 +1064,8 @@ these job and monster texts, written in test source, and never reads
 Fields a picture shows: Guard is `1d10`, AC 12, `str`, `1d8`, Move 4, "Holds
 the line. A test job."; Scout is `1d8`, AC 13, `dex`, `1d6`, Move 5, "Goes
 ahead. A test job with no look."; Ring attacks at `+3` for `1d6+1`, Move 5,
-range 1, bestiary text "A test shape. It rolls at whatever is nearest." Any
+range 1, bestiary text "A test shape. It rolls at whatever is nearest.";
+Arrow has `attackRangeCells` 3, so one fixture unit has a reach to draw. Any
 other field takes any valid value.
 
 **The fixture fight.** Board radius 12.
@@ -1018,12 +1083,17 @@ hit, d6 3 `+1`, 4 HP. It is the scene of the fight mockups with test shapes in
 place of creatures. The predicted strip for it is Ring, Arrow, Nolook, Ring,
 Ash, Ring (no two units are ever ready together, so ids do not decide it).
 `combat_attack_strip` and `combat_attack_still` are the moment before: Ring
-acting, Ash at 14 / 14, that roll being replayed.
+acting, Ash at 14 / 14, that roll being replayed. `combat_states` is the same
+fight four times, side by side: the cell (-1, -1) chosen, with its ghost and
+`Move here`; Arrow inspected, with the pointer and its reach of 3; the
+Encounter log open; and the `Victory` card.
 
 **The fixture character and map.** Ash, a Guard at level 2 with XP 180 / 300;
 job points Guard 100 / 100 and Warden 40 / 200; bestiary Ring ×5 and Arrow ×1.
 The `bestiary_entry` picture is Ring's. On the `map` picture the leash centre
 is at (-5, -6) and the Encounter at the anchor holds Ring and Arrow, 8 m away.
+On the `ask_claude` picture the context preview is open and its map position
+is latitude 0, longitude 0, the value the app holds before it has a position.
 
 ---
 
@@ -1046,12 +1116,21 @@ is at (-5, -6) and the Encounter at the anchor holds Ring and Arrow, 8 m away.
 | Rail, tray, card, buttons | composables | `app/.../ui/game/CombatHud.kt` |
 | A unit's look | the `look` object | inside `content/monsters/<id>.json` and `content/jobs/<id>.json` |
 | The look types and structural rules | Rust | `server/rules/src/content.rs` |
-| The rasteriser and the pixel checks | Rust, dev-dependency only | `server/rules/tests/look_checks/mod.rs`, shared: `mod look_checks;` in `server/rules/tests/looks.rs`, and `#[path = "../tests/look_checks/mod.rs"] mod look_checks;` in the example |
+| The rasteriser and the pixel checks | Rust, dev-dependency only | `server/rules/tests/look_checks/mod.rs`, shared: `mod look_checks;` in `server/rules/tests/looks.rs`, and `#[path = "../tests/look_checks/mod.rs"] mod look_checks;` in the example. Its first line is `#![allow(dead_code)]`: each of the two uses only part of it, and CI's clippy fails on the warning |
 | The sheet and the focus render | Rust example | `server/rules/examples/looks_sheet.rs` |
 | Grammar, hash and colour-mixing cases both sides must agree on | text fixtures | `content/fixtures/look/grammar.tsv`, `hue.tsv`, `mix.tsv` |
 | Test fixtures, snapshot helper | Kotlin | `app/src/test/java/com/esper/app/visual/` |
 | Reference pictures of fixture screens | PNG written by tests | `app/src/test/snapshots/` |
 | Launcher icon | VectorDrawable XML | `app/src/main/res/drawable/ic_launcher_foreground.xml`, `mipmap-anydpi-v26/ic_launcher.xml` |
+
+The three fixture files are tab-separated UTF-8 with one header row, and Rust
+and Kotlin read the same bytes:
+
+| File | Columns |
+|---|---|
+| `grammar.tsv` | `path`, `cutCorners` (`true` or `false`), `accept` (`true` or `false`), `segments`, `subpaths` (both empty on a rejected path) |
+| `hue.tsv` | `id`, `hash` (the 32-bit FNV-1a value, decimal), `hue` |
+| `mix.tsv` | `fn` (`tint` or `shade`), `hue`, `hex` |
 
 **What each consumer of `look` needs**
 
@@ -1105,6 +1184,8 @@ fun parseGlyph(d: String, cutCorners: Boolean): List<Cmd>?   // null = rejected
 
 // ui/look/Looks.kt
 enum class UnitKind { JOB, MONSTER }   // an id is unique only within its kind
+enum class Hue { MOSS, JADE, SLATE, STEEL, VIOLET, CRIMSON, EMBER, BONE }   // the order the id hash indexes
+enum class Tone { HUE, SHADE, PAPER, INK, ACCENT }
 data class ResolvedLook(val glyph: List<Cmd>?, val hue: Hue, val details: List<Pair<Tone, List<Cmd>>>, val monogram: Char)
 class Looks(jobTexts: Map<String, String>, monsterTexts: Map<String, String>) {
     fun of(kind: UnitKind, id: String, name: String): ResolvedLook   // never throws; an unknown id gets the fallback
@@ -1112,6 +1193,7 @@ class Looks(jobTexts: Map<String, String>, monsterTexts: Map<String, String>) {
 
 // ui/look/Draw.kt   used by the board, the HUD, the sheets and the map
 enum class Side { ALLY, HOSTILE, NEUTRAL }
+enum class DieState { PLAIN, NATURAL_20, NATURAL_1 }
 fun DrawScope.drawToken(center: Offset, sizePx: Float, side: Side, look: ResolvedLook,
                         hp: Float? = null, acting: Boolean = false, swapped: Boolean = false, alpha: Float = 1f)
 fun DrawScope.drawPlate(center: Offset, sizePx: Float, look: ResolvedLook)
@@ -1120,10 +1202,14 @@ fun DrawScope.drawDie(center: Offset, sizePx: Float, sides: Int, value: Int?, st
 // ui/game/BoardLayers.kt   knows nothing about osmdroid or the engine
 data class BoardCamera(val anchorPx: Offset, val pxPerMetre: Float)
 data class SceneUnit(val id: String, val name: String, val kind: UnitKind, val sourceId: String, val side: Side,
-                     val q: Int, val r: Int, val hp: Int, val maxHp: Int, val gauge: Double, val speed: Int)
+                     val q: Int, val r: Int, val hp: Int, val maxHp: Int, val gauge: Double, val speed: Int,
+                     val attackRangeCells: Int)
+sealed interface Feedback   // a die, a number or a flash of §4.7, with the milliseconds since it started
 data class BoardScene(val radiusCells: Int, val units: List<SceneUnit>, val actingId: String?,
                       val reachable: Set<Pair<Int, Int>>, val inReach: Set<String>, val chosenCell: Pair<Int, Int>?,
-                      val chosenTargetId: String?, val defeated: List<Pair<Int, Int>>, val overlays: List<Overlay>)
+                      val chosenTargetId: String?, val inspectedId: String?, val defeated: List<Pair<Int, Int>>,
+                      val feedback: List<Feedback>)
+sealed interface Layer      // one row of §4.4's table: its paths, tokens or feedback
 fun boardLayers(scene: BoardScene, dpPerMetre: Float): List<Layer>   // §4.4's table, in metres east/north of the anchor
 fun DrawScope.drawBoard(layers: List<Layer>, camera: BoardCamera, looks: Looks)
 ```
@@ -1133,6 +1219,13 @@ fun DrawScope.drawBoard(layers: List<Layer>, camera: BoardCamera, looks: Looks)
   becomes: wrap the native canvas in a `CanvasDrawScope`, build `BoardCamera`
   from the projection (project the anchor and a point one metre east of it),
   call `drawBoard`. It stops projecting 2,814 corners a frame.
+- Text inside these functions (a monogram, a die's number, the leash tag, the
+  damage number) is drawn with `drawIntoCanvas { it.nativeCanvas.drawText(...) }`
+  and an `android.graphics.Paint`: `Typeface.create("sans-serif-condensed",
+  Typeface.BOLD)` for HUD, `Typeface.create(Typeface.SERIF, Typeface.BOLD)` for
+  a plate's monogram. Compose's `drawText` needs a `TextMeasurer`, and the
+  board is drawn from an osmdroid overlay, outside composition, where there is
+  none. A size in sp becomes pixels through `toPx()`, which `DrawScope` has.
 - Screenshot tests call the same `drawBoard` with a hand-made camera over
   Fixture Town. When the tile engine changes, only the lines that build the
   camera change.
@@ -1140,9 +1233,11 @@ fun DrawScope.drawBoard(layers: List<Layer>, camera: BoardCamera, looks: Looks)
   `CombatUnit`s; when combat moves to the server (`SERVER.md` §14 step 2) it is
   mapped from server state and nothing below it changes.
 - **Replay.** `CombatReplay` holds the scene the player sees and a queue of
-  events. After every engine call the screen appends the engine's events, plus
-  two the engine does not emit: `TurnReady(unitId)` for the unit
-  `advanceToNextActor()` returned, and `Waited(unitId)` for a Wait. The scene
+  its own `ReplayEvent`s: one case for each engine event, and two the engine
+  never emits, `TurnReady(unitId)` for the unit `advanceToNextActor()`
+  returned and `Waited(unitId)` for a Wait. (The frozen engine declares a
+  `CombatEvent.TurnReady`, emits it nowhere, and has no `Waited`; nothing is
+  added to it.) After every engine call the screen appends them. The scene
   on screen is the scene before the call with the replayed events applied, so
   HP bars and positions change when their event plays, not when the engine
   returns. Later the same queue is fed from the socket. What an event looks
@@ -1178,10 +1273,20 @@ android {
                 }
                 test.systemProperty("roborazzi.record.resizeScale", "0.5")
                 test.systemProperty("robolectric.pixelCopyRenderMode", "hardware")
-                // The PNGs are read by path at run time. Declared, or a pull request that changes
-                // only a PNG is FROM-CACHE and verifies nothing (gradle.properties turns the cache on).
-                test.inputs.dir("src/test/snapshots").withPropertyName("snapshots")
-                    .withPathSensitivity(PathSensitivity.RELATIVE).optional()
+                test.maxHeapSize = "2g"   // a test worker gets 512 MB by default
+                // Gradle shows neither a test's output nor a failure's message by default.
+                // A run needs both: the "SNAP wrote" lines and the "Screenshots are off" message.
+                test.testLogging {
+                    showStandardStreams = true
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                }
+                // Files the tests read by path at run time. Declared, or a pull request that changes
+                // only a PNG or a fixture is FROM-CACHE and verifies nothing (gradle.properties turns
+                // the cache on). fileTree, not inputs.dir: a folder that does not exist yet is allowed.
+                test.inputs.files(fileTree("src/test/snapshots")).withPropertyName("snapshots")
+                    .withPathSensitivity(PathSensitivity.RELATIVE)
+                test.inputs.files(fileTree("../content")).withPropertyName("content")
+                    .withPathSensitivity(PathSensitivity.RELATIVE)
                 // Recording always runs, so its pictures are always written.
                 if (project.findProperty("roborazzi.test.record") == "true") test.outputs.upToDateWhen { false }
             }
@@ -1189,6 +1294,13 @@ android {
     }
 }
 ```
+
+The lines inside `all { }` were run on a plain `Test` task with Gradle 8.7 and
+JDK 17, not under the Android plugin: with no snapshots folder the task runs,
+a changed PNG or fixture runs it again, and the `SNAP wrote` line and a
+failure's whole message reach the console. The tests that read `content/`
+(`shipped_units`, `GlyphGrammarTest`, `ThemeContrastTest`) read it by path,
+`../content/` from `app/`.
 
 ---
 
@@ -1216,16 +1328,25 @@ cargo run --locked -p rules --example looks_sheet -- --stress 100 target/looks
 - `--focus <file>` takes a unit's file, as a path under the content
   directory, and writes `target/looks/<kind>-<id>.png`
   (`monsters-bog_witch.png`): four columns, that unit and the three shipped
-  looks it is closest to, across jobs and monsters alike. Each column is the
-  unit's **plate** at 156 px, drawn exactly as §4.5 "Plates" (the tint, the
-  stamp, the details clipped to the glyph with a `tiny_skia::Mask`, the outline
-  struck again), then its 16 px raster enlarged, its token in the three frames
-  at 44 px, and its hostile token at 26 and 16 px on the mat colour. This is
-  the one picture that shows a look's hue and details without Gradle, and the
-  picture to look at when adding a look. The command prints `FOCUS <file>`
-  and the unit's numbers, runs every check below on it, and exits 1 if one
-  fails. It then does the same for each job that takes its glyph from that
-  unit, because a changed glyph changes them too.
+  looks it is closest to, across jobs and monsters alike, leaving out the
+  units it is in line with (§4.5). Each column is the unit's **plate** at
+  156 px, drawn exactly as §4.5 "Plates" (the tint, the stamp, the details
+  clipped to the glyph with a `tiny_skia::Mask`, the outline struck again),
+  then its 16 px raster enlarged, its token in the three frames at 44 px, and
+  its token at 26 and 16 px on the mat colour in its own frame: a circle for a
+  job, a diamond for a monster. This is the one picture that shows a look's
+  hue and details without Gradle, and the picture to look at when adding a
+  look.
+  - A job that takes its glyph from another unit, or gives its glyph to one,
+    gets a second row, its **family**: the units it is in line with and every
+    other job that takes a glyph from the same unit, drawn the same way. The
+    command prints how alike each is to it.
+  - The command prints `FOCUS <file>` and the unit's numbers, runs every check
+    below on it, and exits 1 if one fails. A unit with no glyph (no `look`, or
+    a look with only a hue) has nothing to check: the command prints
+    `FOCUS <file>`, draws its monogram and exits 0.
+  - It then does the same for each job that takes its glyph from that unit,
+    because a changed glyph changes them too.
 - `--stress N` draws N invented glyphs (seeded, never from `content/`) through
   the same code, to see drift and crowding before it ships.
 - tiny-skia draws no text. Names and numbers are printed in the order the
@@ -1245,7 +1366,7 @@ alpha is 128 or more.
 | size | the ink's bounding box is at least 10 px wide and 10 px tall | `too small in its box: span at least 10 of the 16 px both ways` |
 | line | an inherited glyph and its mark together have at most 40 segments and 6 subpaths | `squire's glyph and this mark make 43 segments (limit 40)` |
 | mark | the mark alone is at least 6 ink pixels, and at most 10% of them are ink in the inherited glyph | `the mark crosses the inherited glyph` / `the mark is under 6 px at 16 px` |
-| alike | intersection over union of the ink pixels of two glyphs at most 0.75, against every shipped unit outside its own job line | `bog_witch is 79% alike to apprentice (limit 75%). Change the outline, not the details: give it a different top, or cut a face into it.` |
+| alike | intersection over union of the ink pixels of two glyphs at most 0.75, against every shipped unit it is not in line with (§4.5). Two jobs that mark the same glyph are compared | `bog_witch is 79% alike to apprentice (limit 75%). Change the outline, not the details: give it a different top, or cut a face into it.` When both take their glyph from one unit: `archer is 84% alike to knight (limit 75%). Both add a mark to squire's glyph: move the mark clear of knight's, or give archer a glyph of its own.` |
 
 **Where each check runs.** A check that one file decides is a test. A check
 that needs a second file runs on pull requests only, on the files the pull
@@ -1300,12 +1421,20 @@ fun snap(name: String, committed: Boolean = true, content: @Composable () -> Uni
   `@Config(sdk = [34], qualifiers = "w412dp-h915dp-420dpi")`.
 - Unit tests run with `app/` as the working directory, so the paths above are
   `app/src/test/snapshots/` and `app/build/outputs/roborazzi/`.
+- A picture of several screens side by side is a `Row` of them, and its test
+  widens the screen, or the picture is cut to the first one:
+  `@Config(qualifiers = "w1236dp-h915dp-420dpi")` for the three of
+  `combat_attack_strip`, `w1648dp` for the four of `combat_states`.
+- A picture at font scale 1.3 wraps its content in
+  `CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, fontScale = 1.3f))`.
 - **Record and look:** `gradle :app:testDebugUnitTest -Proborazzi.test.record=true`,
   then open the changed PNGs. **How a run proves a picture was written:** the
-  build prints one `SNAP wrote ...` line per picture, the helper deletes the old
-  file first and fails if no new one appears, and `git status` shows the PNG
-  changed.
-  A run that sees none of the three did not render.
+  build prints one `SNAP wrote ...` line per picture (the `testLogging` lines
+  of §6 are what let it through), and the helper deletes the old file first
+  and fails if no new one appears. `git status` also lists a PNG whose
+  picture changed; one that came out the same is not listed, and its
+  `SNAP wrote` line is the proof. A run that sees no `SNAP wrote` line did not
+  render.
 - **Verify:** `gradle :app:testDebugUnitTest -Proborazzi.test.verify=true`
   fails when a screen no longer matches its committed PNG, or has none, and
   writes the comparison under `app/build/outputs/roborazzi/`. It still writes
@@ -1331,7 +1460,12 @@ never compared, uploaded by CI):
 - `combat_whole_sun` and `map_sun`: the fixtures under the sun veil.
 - `combat_whole_w360`: the whole board on a 360 dp wide screen
   (`@Config(qualifiers = "w360dp-h800dp-420dpi")` on that test), where tokens
-  overlap most.
+  overlap most and the unit card is narrowest.
+- `combat_states`: four screens side by side that no other picture holds
+  (§5): the chosen cell, an inspected unit with its reach, the Encounter log,
+  the result card.
+- `sheet_font130`: the character sheet at font scale 1.3, where the stat
+  tiles have to grow.
 
 ### What CI enforces
 
@@ -1349,11 +1483,15 @@ never compared, uploaded by CI):
 - `ThemeContrastTest` (plain JVM): every row of the floors table, the
   colour-vision pairs, and `tint` and `shade` against the three values of
   §4.1 (`mix.tsv`).
-- `VisualGuardsTest` (plain JVM, reads `src/main`): no `Color(0x`, `Color.argb`,
-  `Color.rgb` or named `Color.` constant except `Transparent` and `Unspecified`
-  outside `ui/theme/EsperColors.kt`; no `.png`, `.jpg`, `.jpeg`, `.webp`,
-  `.gif` or `.bmp` under `app/src/main/res`. The launcher colours live in
-  `res/values/colors.xml`, the one exception.
+- `VisualGuardsTest` (plain JVM, reads `src/main`). Colours: outside
+  `ui/theme/EsperColors.kt`, no `Color(0x`, `Color.argb`, `Color.rgb` or named
+  `Color.` constant except `Transparent` and `Unspecified`, and no line that
+  names a colour (contains `olor`) and holds a `0x` literal of 6 or 8 hex
+  digits, which is how `fillColor = 0x220000FF` is caught and the hash
+  constants of `Looks.kt` are not. The launcher colours live in
+  `res/values/colors.xml`, the one exception. Rasters: no `.png`, `.jpg`,
+  `.jpeg`, `.webp`, `.gif` or `.bmp` under `app/src/main/res`. Fonts: no
+  `.ttf` or `.otf` under `app/src/main`, and no `res/font` folder.
 
 ### What the loop cannot see
 
@@ -1452,7 +1590,9 @@ in its log.
 
 ## 8. Adding a look
 
-A new monster or job is one JSON file, and its look is part of that file.
+A new monster or job is one JSON file, and its look is part of that file. No
+other file changes: not its parent's file, not a table in `content/schema/`,
+not a committed picture.
 
 **This section applies once rollout step 1 is on `main`.** Until then the Rust
 loader rejects `look` and the focus command does not exist. A run asked for a
@@ -1460,14 +1600,30 @@ new unit before that adds the file with no `look`, and adds its id to the
 lists of expected ids in `server/rules/src/content/tests.rs` and
 `engine/src/test/kotlin/com/esper/engine/content/ShippedContentTest.kt`, which
 step 1 relaxes. It says in the pull request that the look is still to come.
+From step 1 on, the field table, the grammar and the resolving rules are in
+`content/schema/look.schema.md`.
 
 The other fields are in `content/schema/monster.schema.md` and
-`job.schema.md`. For the numbers, start from the shipped unit closest in role
-and say in the pull request which one that was.
+`job.schema.md`. This document sets no game numbers. Start from the shipped
+unit closest in role and say in the pull request which one that was. When no
+shipped unit has what the request asks for (no shipped job attacks from a
+distance), start from the one closest in tier, change only what the request
+names, and list in the pull request every number you chose, so Levi can
+change them.
 
 1. **Add the file with no `look`.** It is playable at once, and draws as its
-   monogram.
-2. **Draw the glyph.** Front view, one feature exaggerated. Say in words what
+   monogram. A job names its parent in its own `prerequisites`, and that is
+   all a job needs to unlock: do not edit the parent's file or its `unlocks`
+   list.
+2. **A job with a prerequisite: a mark or a glyph?** Any other unit skips
+   this step and step 6.
+   - Its emblem is its parent's with something added (a knight is a squire
+     with more): it gives a `mark` and no glyph, and skips steps 3 and 5.
+   - Its people carry something else (an archer's bow is not a sword), or the
+     parent has no glyph, or another job already adds a mark to that glyph:
+     it draws its own glyph and skips step 6. It is checked like any glyph,
+     and takes nothing from its parent but a hue, if it gives none.
+3. **Draw the glyph.** Front view, one feature exaggerated. Say in words what
    the feature is before drawing (the wolf's ears, the hat's brim) and give it
    about a third of the outline.
    - A monster is a face or a body. A job is an emblem, an object its people
@@ -1485,25 +1641,46 @@ and say in the pull request which one that was.
      their details.
    - Draw your own. Do not copy a creature from another game. The bog witch
      below is an example and may be shipped as it stands if one is asked for.
-3. **Pick a hue**, the one that suits the creature. Hues need not be unique:
-   colour never identifies a unit.
-4. **Optionally add details** for the plate, usually two to four. Start with
+4. **Pick a hue**, the one nearest the thing's own colour: `moss` or `jade`
+   for things of wood and water, `slate`, `steel` or `bone` for stone, metal
+   and the dead, `ember` or `crimson` for fire and blood, `violet` for magic.
+   Hues need not be unique: colour never identifies a unit.
+5. **Optionally add details** for the plate, usually two to four. Start with
    `{ "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" }` to colour the whole
    figure, then add rough patches: `shade` for an underside or the far side,
    `paper` for a highlight, teeth or hair, `ink` for a nose or pupils, `accent`
    for the one thing that should stand out (a hilt, a gem). They are clipped
    to the glyph, so they need not follow its edge.
-5. **A job with a prerequisite** gives no glyph: it gives a `mark` (small
-   shapes in the free corners of its parent's glyph) and usually a `hue`.
-6. **Render and look:** `--focus` with the file (§7). Open the PNG: it shows
-   the plate with its hue and details, and the tokens down to 16 px. Cover the
-   name and say what the 16 px hostile token is. If the honest answer is not
-   the creature, change the outline. Fix until it reads and the command
-   exits 0.
-7. Run `cargo test --locked -p rules` in `server/` and
-   `gradle :engine:test --configure-on-demand`. Open the pull request; say
-   which pictures you looked at. No committed picture changes. CI attaches
-   `shipped_units`, the same unit drawn by the app.
+6. **A mark** (the first branch of step 2 only). One or two small solid
+   shapes beside the inherited glyph that say what this job adds: a rank, a
+   second tool.
+   - Step 3's guides hold: nothing narrower than 2.5 units, out of the cut
+     corners. At most 12 segments, and at least 6 px of ink at 16 px (knight's
+     two pips are 12 px).
+   - Put it where the inherited glyph's 16 px raster is empty, and leave 1
+     unit or more between the two, as knight's pips do. Beside squire's sword
+     that is left of x = 7.4 or right of x = 16.6, and above y = 12.6, clear
+     of the crossguard. At most a tenth of the mark's ink may land on the
+     glyph.
+   - The glyph with its mark may reach 50% ink (squire alone is 35.2%, knight
+     39.8%).
+   - A line holds 40 segments and 6 subpaths in all, glyph and every mark
+     above this job together. A job that would pass that draws its own glyph.
+   - On the plate the mark prints whatever the inherited details put under it
+     (§4.5). To choose its colour, give the job its own `details`.
+7. **Render and look:** `--focus` with the file (§7). Open the PNG: it shows
+   the plate with its hue and details, and the tokens down to 16 px in the
+   unit's own frame. Cover the name and say what the 16 px token is. If the
+   honest answer is not the creature, change the outline. For a job with a
+   mark the question is which job of its family the 16 px token is; the
+   family row shows them side by side. If you cannot say, enlarge the mark or
+   move it, and if that is not enough go back to step 2 and draw a glyph. Fix
+   until it reads and the command exits 0.
+8. Run `cargo test --locked -p rules` in `server/` and, while `engine/`
+   exists, `gradle :engine:test --configure-on-demand`. Open the pull request;
+   say which pictures you looked at. No committed picture changes. From
+   rollout step 8, CI attaches `shipped_units`, the same unit drawn by the
+   app.
 
 **Worked example: a bog witch.** A caster with a four-cell reach.
 
@@ -1553,19 +1730,21 @@ the cargo picture has four columns and no text.)
 
 Small pull requests, in order. Each ships alone. Step 0 changes workflow
 files, so it is made by Levi or by a Claude session with his credentials (§7);
-every later step can be an Ask Claude run.
+every later step can be an Ask Claude run. Steps 1 and 2 do not depend on
+each other and may land in either order. Nothing from step 6 on starts before
+Levi has seen step 2 on his phone.
 
 | # | Pull request | Contains | Accepted when |
 |---|---|---|---|
 | 0 | **Workflows** | Every workflow change of §7: the four changes to `claude-dispatch.yml` and the two `ci.yml` hunks. Workflow files only. | CI is green on it. A dispatched run asked to report `gradle -v` and `cargo -V` does so, and its upload step ran. |
-| 1 | **Looks in Rust** | Rust `Look` and its one-file rules; `content/fixtures/look/`; `tests/look_checks/`, `tests/looks.rs`; the `looks_sheet` example with `--focus` and `--stress`; the two lists of expected ids (`server/rules/src/content/tests.rs`, `ShippedContentTest.kt`) changed from "equals these ids" to "contains the six starting ids"; schema docs; `look` in the six content files. The app ignores the field. | `cargo test` and `gradle :engine:test` pass. CI's looks steps run instead of being skipped, and the sheet shows six units with the numbers of §4.5's table. A scratch monster file with no `look` passes both suites with no other file touched. |
-| 2 | **The camera** | `setTilesScaledToDpi(true)` on both map views; the arithmetic of §4.3 as pure functions; the Encounter opens in the fight view with the pinch range raised; the corrected Combat sentences (§10). No new look. | `CameraMathTest` (plain JVM) holds §4.3: 34 dp per metre is zoom 22.34, 21.96 and 21.34 at 0°, 40° and 60°; the whole board is 16.03 dp per metre on a 412 dp map; a 10 m box gets 34. Then Levi opens a fight on his phone: a cell is about 5 mm, the enlarged tiles are drawn, a pinch out shows the whole board. **If osmdroid does not draw tiles enlarged this far, stop and ask Levi** (§12 question 13). |
-| 3 | **The harness, on one screen** | Roborazzi, Robolectric, the Gradle lines, `snap()`, `SignInScreen` split into `SignInContent`, the first committed picture, the raster guard. | CI is green; the pull request shows `signin.png`; a plain `gradle :app:testDebugUnitTest` fails with the "Screenshots are off" message. |
-| 4 | **The theme** | `EsperColors`, `EsperTheme`, `Spec`, `Surfaces`; `ThemeContrastTest`; the colour guard; the launcher icon; sign-in and settings restyled. Pictures `signin`, `settings`. | All guards pass. The run counts one gold button in each picture. |
-| 5 | **The theme on every screen** | Every other screen split into `...Content` and restyled with no layout change beyond §4.6: creator, character sheet, Ask Claude, Prompts, the gates, the map screen's card. Pictures `creator`, `sheet`, `ask_claude`. | The colour guard finds no colour outside `ui/theme/`. One gold button in each picture. |
-| 6 | **The mat** | Tile filter and paper loading colour; `BoardScene`, `boardLayers`, `drawBoard`; tokens with monograms, HP bars, the gold ring, the move and reach outlines, brackets, leash ring, board edge; the Whole board button. Taps still act at once. Pictures `combat_fight`, `combat_whole`, `combat_sun`, `combat_grey`, `tokens`, and the two whole-board artifacts. | The pictures match §4.4: 25.8 dp tokens whose frame says the side, 16 dp tokens on the whole board. |
-| 7 | **The Encounter HUD** | The header and turn rail, roll tray, Encounter log, unit card, commit button, pinned row; tap selects and the button commits; TalkBack buttons, summary and announcements; `combat_font130`. | Plain JVM tests hold `needs N+` with its clamps at 2 and 20, the predicted strip of the fixture fight, and the `Next target` and `Next cell` orders. The log lists every unit and the last 8 events. Nothing is missing from the overflow menu. |
-| 8 | **Looks in the app** | `GlyphPath`, `Looks`, `GlyphGrammarTest`; glyphs on tokens; plates on the sheet, bestiary and creator; the bestiary entry; `bestiary_entry`; `shipped_units`. | `GlyphGrammarTest` passes on the fixtures of step 1. The `shipped_units` artifact shows the same units as the cargo sheet. A fixture with no `look` still draws. |
+| 1 | **Looks in Rust** | Rust `Look` and its one-file rules; `content/fixtures/look/`; `tests/look_checks/`, `tests/looks.rs`; the `looks_sheet` example with `--focus` and `--stress`; the two lists of expected ids (`server/rules/src/content/tests.rs`, `ShippedContentTest.kt`) changed from "equals these ids" to "contains the six starting ids"; the schema docs of §10; `look` in the six content files. The app ignores the field. | `cargo test`, `cargo fmt --check` and `cargo clippy --all-targets --locked -- -D warnings` (CI runs all three) and `gradle :engine:test` pass. CI's looks steps run instead of being skipped, and the sheet shows six units with the numbers of §4.5's table. A scratch monster file with no `look` passes both suites with no other file touched. |
+| 2 | **The camera** | `setTilesScaledToDpi(true)` on both map views; the arithmetic of §4.3 as pure functions; the Encounter opens in the fight view with the pinch range raised; the corrected Combat sentences (§10). No new look. | `CameraMathTest` (plain JVM) holds §4.3: 34 dp per metre is zoom 22.34, 21.96 and 21.34 at 0°, 40° and 60°; the whole board is 16.03 dp per metre on a 412 dp map; a 10 m box gets 34. Then Levi opens an Encounter on his phone and reports in words: a cell is about 5 mm, the enlarged tiles are drawn, a pinch out shows the whole board. No screenshot of the real map is posted to the repository: it would show where he is. **If osmdroid does not draw tiles enlarged this far, stop and ask Levi** (§12 question 13). |
+| 3 | **The harness, on one screen** | Roborazzi, Robolectric, the Gradle lines, `snap()`, `SignInScreen` split into `SignInContent`, the first committed picture, the raster guard. | CI is green; the pull request shows `signin.png`; the record command prints `SNAP wrote app/src/test/snapshots/signin.png`; a plain `gradle :app:testDebugUnitTest` fails and prints the "Screenshots are off" message. |
+| 4 | **The theme** | `EsperColors`, `EsperTheme`, `Spec`, `Surfaces`; `ThemeContrastTest`; the colour and font guards; the launcher icon; sign-in and settings restyled. The twelve colour literals left in `MapScreen.kt`, `CombatScreen.kt` and `HexGridOverlay.kt` become the theme colour of the same role at the alpha each has today (`ally` for the player's side, where it can go and the leash circle's fill; `foe` for hostiles and what it can hit; `turn` for the acting unit; `ink` for the grid, the circle's line and the attribution's text; `paper` behind the attribution), with no other change to those files. Pictures `signin`, `settings`. | All guards pass. The run counts one gold button in each picture. |
+| 5 | **The theme on every screen** | Every other screen split into `...Content` and restyled with no layout change beyond §4.6: creator, character sheet, Ask Claude, Prompts, the gates, the map screen's card. Pictures `creator`, `sheet`, `ask_claude`, and the artifact `sheet_font130`. `creator` and `sheet` have no plates yet; step 8 records them again. | The guards still pass. One gold button in each picture. No text is cut in `sheet_font130`. |
+| 6 | **The mat** | Tile filter and paper loading colour; `BoardScene`, `boardLayers`, `drawBoard`; tokens with monograms, HP bars, the gold ring, and every other row of §4.4's layer table but the feedback; the Whole board button. Taps still act at once. Pictures `combat_fight`, `combat_whole`, `combat_sun`, `combat_grey`, `tokens`, and the two whole-board artifacts. | The pictures match §4.4: 25.8 dp tokens whose frame says the side, 16 dp tokens on the whole board. |
+| 7 | **The Encounter HUD** | The header and turn rail, roll tray, Encounter log, unit card, commit button, pinned row; a tap selects a cell, a target or a unit to inspect, and the button commits; TalkBack buttons, summary and announcements; `combat_font130` and the artifact `combat_states`. | `combat_states` shows the four states of §5. Plain JVM tests hold `needs N+` with its clamps at 2 and 20, the predicted strip of the fixture fight, and the `Next target` and `Next cell` orders. The log lists every unit and the last 8 events. Nothing is missing from the overflow menu. |
+| 8 | **Looks in the app** | `GlyphPath`, `Looks`, `GlyphGrammarTest`; glyphs on tokens; plates on the sheet, bestiary and creator; the bestiary entry; `bestiary_entry`; `shipped_units`; `creator` and `sheet` recorded again. | `GlyphGrammarTest` passes on the fixtures of step 1. The `shipped_units` artifact shows the same units as the cargo sheet. A fixture with no `look` still draws. |
 | 9 | **Replay and dice** | `CombatReplay`, the motion table, the stills, haptics; `combat_attack_strip`, `combat_attack_still`. | The two pictures match §4.7 and show a hostile acting in the header. A plain test holds that a map tap empties the queue. |
 | 10 | **The map screen** | The walking camera, markers, status chip, the Encounter card. Pictures `map`, `map_sun`. | The picture matches §4.6; "No walking needed." is on the card. |
 
@@ -1596,8 +1775,9 @@ Each lands with the pull request that makes it true.
 - *Tile source* (step 2). "1 m cells want zoom 20–21, at or past what the
   standard layer serves" becomes "1 m cells want zoom 20–22.5, past what the
   standard layer serves".
-- *Systems* table. New row `Visual identity`, updated as steps land; the notes
-  of `Map / world` and `Grid overlay on real map` gain the camera and the mat.
+- *Systems* table. The row `Visual identity`, added with this document as
+  "designed, not built" and updated as steps land; the notes of `Map / world`
+  and `Grid overlay on real map` gain the camera and the mat.
 - *Why the app asks for location*. Only if survey ink is approved, and before
   it is built: "During an Encounter the app keeps the map shapes it fetched for
   the safety check in memory to draw paths, water and buildings on the board,
@@ -1612,9 +1792,12 @@ why a look is path text in the unit's own file and colour says the side, added
 with this document.
 
 **`content/schema/`** (step 1): a `look` row in `job.schema.md` and
-`monster.schema.md`; a new `look.schema.md` holding the field table, the
-grammar and the resolving rules of §4.5 as the normative text, with this
-document pointing at it.
+`monster.schema.md`; a new `look.schema.md` that takes over the field table,
+the grammar and the resolving rules of §4.5, moved and not copied, with a link
+left in §4.5; the fixture file formats of §6. The tables "Shipped jobs" and
+"Shipped monsters" at the end of the two schema docs are retitled "Starting
+jobs" and "Starting monsters" and stay at six rows, so no new unit has a
+shared file to edit.
 
 **`docs/SERVER.md`** (step 1): §2's table gains `rules/examples/looks_sheet.rs`,
 `rules/tests/looks.rs` and `rules/tests/look_checks/`; §3's expected crates
@@ -1624,7 +1807,8 @@ gains the coming turn order and, for the acting unit, the number each target
 needs, so the app stops computing them (§4.4).
 
 **`README.md`**: "Build locally" gains the two render commands (steps 1, 3).
-**`CLAUDE.md`**: a pointer to this file beside the one to `GAME_DESIGN.md`.
+**`CLAUDE.md`**: a pointer to this file beside the one to `GAME_DESIGN.md`,
+added with this document.
 
 **`.github/workflows/`**: `claude-dispatch.yml` and `ci.yml`, in step 0 only.
 
@@ -1635,10 +1819,12 @@ needs, so the app stops computing them (§4.4).
 **Not verified**
 
 - Nothing was compiled for Android or run on a device. Every Kotlin signature
-  and Gradle line here is a specification, not tested code. Compose API names
-  (`CutCornerShape`, `CanvasDrawScope`, a device font family for
-  `sans-serif-condensed`, a colour-filter layer for the grey picture) are from
-  memory of Compose 1.7.
+  here is a specification, not tested code, and the Gradle lines of §6 ran
+  only on a plain `Test` task, outside the Android plugin. Compose and Android
+  API names (`CutCornerShape`, `CanvasDrawScope`, a device font family for
+  `sans-serif-condensed`, a colour-filter layer for the grey picture,
+  `statusBarsPadding`, `Density(density, fontScale)`, the Material icon names)
+  are from memory of Compose 1.7.
 - **osmdroid drawing tiles enlarged to zoom 22.** Read from the osmdroid 6.1.20
   source (tile zoom is the floor of the zoom; nothing is downloaded above the
   source's 19; lower-zoom tiles from the cache are enlarged), not seen on a
@@ -1653,10 +1839,10 @@ needs, so the app stops computing them (§4.4).
   a scratch repository shaped like CI's checkout (a merge commit at depth 1):
   the three-dot diff fails there, the two-dot diff lists the changed unit
   files, and a failing fetch or diff stops the step.
-- Whether a dispatched run can commit a PNG. The dispatch workflow commits
-  through the GitHub API (`use_commit_signing: true`); that this path carries
-  binary files was not checked. If it does not, visual pull requests need the
-  signing mode changed, or pictures stay artifacts only.
+- A dispatched run committing a PNG. The dispatch workflow commits through
+  the GitHub API (`use_commit_signing: true`), and the action's commit tool
+  sends a binary file as a base64 blob (`src/mcp/github-file-ops-server.ts` at
+  `v1`). Read, not run.
 - The looks checks ran here as a throwaway crate, not inside `server/rules`.
   Whether the image build downloads the dev-dependency was not checked; it is
   not compiled into the binary.
@@ -1668,7 +1854,7 @@ needs, so the app stops computing them (§4.4).
   A wrong digit moves a row of the identity sheet, not the game.
 - Real sunlight, real device fonts, haptics, and how 5.4 mm cells feel under a
   thumb.
-- The 150-turn and 75-minute limits are estimates.
+- The 150-turn and 75-minute limits and the 2 GB test heap are estimates.
 
 **Risks**
 
@@ -1683,8 +1869,18 @@ needs, so the app stops computing them (§4.4).
   that mirrors `Spec.kt` and §4.5. A drift misleads a preview, not the game:
   the glyph grammar and the colour mixing are shared by fixture, and
   `shipped_units` is drawn by the app's own code.
-- **Committed pictures churn.** A change to the theme rewrites about fifteen
-  PNGs (about 2 MB). They are fixtures only, so content never touches them.
+- **Committed pictures churn and collide.** A change to the theme rewrites
+  about fifteen PNGs (about 2 MB). Two open pull requests that redraw the same
+  screen both rewrite its PNG, and a binary file cannot be merged by hand: the
+  second needs a new run to record it again. A theme change does that to every
+  open visual pull request. They are fixtures only, so content never touches
+  them and adding a unit stays free of this.
+- **A dispatched run executes what it wrote.** `Bash(gradle:*)` and
+  `Bash(cargo:*)` let a run build and run its own code on the runner, beside a
+  token that can write to the repository. That is acceptable while every
+  dispatcher is someone Levi gave repository access to, and is one more thing
+  to settle before open enrolment (`GAME_DESIGN.md`, "Who is allowed to
+  vibe-code").
 - **Robolectric is not a phone.** Its text metrics differ; a layout that fits
   in a picture can clip on a device. Font-scale and long-name cases need a look
   on a phone.
@@ -1705,9 +1901,9 @@ built.
 | # | Question | Assumed | If not |
 |---|---|---|---|
 | 1 | On a token, does colour say the side and never which monster, and may every monster have a drawn face at plate size, accepting that player-added ones will be uneven? | Yes. | Colour per monster fails the one-second glance; a no to faces means stamps only and `details` is dropped. |
-| 2 | May a fight open zoomed in, with part of the board off screen and the whole board one tap away? This replaces one sentence in the settled Combat section. | Yes. | Tokens stay at the 16 dp floor for the whole fight. |
-| 3 | May the Ask Claude dispatch workflow change so a run can render and look: Java, Gradle and Rust set up as in CI, 150 turns, 75 minutes, `gradle` and `cargo` allowed? A dispatched run cannot push that change; it is yours, or a session's with your credentials, to make (step 0). | Yes. | Visual pull requests are written blind and only CI's verify step catches regressions. |
-| 4 | Are committed reference pictures acceptable if they show fixture screens only, with every per-unit picture a CI artifact? | Yes. | All pictures become artifacts; CI can still compare against `main`, reviewers lose image diffs. |
+| 2 | May a fight open zoomed in, with part of the board off screen and the whole board one tap away? This replaces two sentences in the settled Combat section (§10). | Yes. | Tokens stay at the 16 dp floor for the whole fight. |
+| 3 | May the Ask Claude dispatch workflow change so a run can render and look: Java, Gradle and Rust set up as in CI, 150 turns, 75 minutes, `gradle` and `cargo` allowed? Allowing those two lets a run execute code it wrote on the runner, beside a token that can write to the repository: fine while you choose every dispatcher, and to be settled before open enrolment. A dispatched run cannot push that change; it is yours, or a session's with your credentials, to make (step 0). | Yes. | Visual pull requests are written blind and only CI's verify step catches regressions. |
+| 4 | Are committed reference pictures acceptable if they show fixture screens only, with every per-unit picture a CI artifact? | Yes, knowing the cost: two open pull requests that redraw one screen collide on its PNG, and the second needs a new run to record it again. | All pictures become artifacts; CI can still compare against `main`, reviewers lose image diffs. |
 | 5 | Survey ink: may the app keep the safety-check geometry in memory during an Encounter to draw real paths, water and buildings? | Not yet. Optional later step. | If yes: write the sentence in "Why the app asks for location" first. |
 | 6 | Does gold mean acting now and the one primary action, and nothing else? | Yes. | If gold may also mark a natural 20 or the Encounter pin, say which. |
 | 7 | Will you try the camera-only change on your phone before the rest is built on it? | Yes. | The one assumption no loop can see stays unseen. |
@@ -1717,6 +1913,9 @@ built.
 | 11 | May the map screen drop "First view: local map" and the two sentences explaining Ask Claude, which the Ask Claude screen already says? | Yes: it is scaffolding text, not a feature. | They stay, as one line under the row of three buttons. |
 | 12 | Is a walking view of 6 dp per metre right (the leash ring a third of the screen's width, tiles enlarged 3.6 times), rather than today's sharper, smaller zoom 19? | Yes. | Use zoom 19.0: the ring is a quarter of the width and tiles are enlarged 2.6 times. |
 | 13 | If the camera step shows that osmdroid draws no map under a fight this close, what then? | The fight view is capped at the closest scale that still draws the map, and tokens keep their sizes. | A fight on plain paper is a board detached from the map, which Pillar 1 rejects. That needs your decision, or the tile work comes first. |
+| 14 | Should a job wear its parent's emblem with a mark only when it is the same emblem upgraded (knight), and draw its own glyph when its people carry something else (an archer), with two jobs that mark one glyph held to the alike limit against each other? | Yes: two marks on squire's sword measured 84% alike at 16 px. | If every job of a tree should wear its root's emblem: jobs that mark the same glyph are excused from the limit, and two of them in one party are told apart by their marks alone. |
+| 15 | May the unit card, the roll tray, the commit button and a bestiary entry show a hostile's AC, attack bonus and damage, and the number the dice need? Today the app shows a hostile's name, HP and gauge. | Yes: dice the player can read are the D&D third of the game. | AC and `needs N+` stay hidden until the monster is in the bestiary, and the server (§10) does not send them before that. |
+| 16 | May the walking map draw your character's token at the leash centre, although the avatar has no place of its own outside an Encounter? It is a picture of "you are here" and moves only when the circle recentres. | Yes. | No character token is drawn until the avatar has a position of its own (Movement: placed by touch). |
 
 Calls made here, stated so they can be overturned:
 
@@ -1734,3 +1933,6 @@ Calls made here, stated so they can be overturned:
 - The plate has no hatch and no ground shadow; the off-register tint replaces
   both.
 - The bestiary shows only monsters already met, as today.
+- The design mockups under `docs/visuals/` show the six starting units. They
+  are frozen, no content pull request edits them, and they are the only
+  committed pictures of shipped content.

@@ -515,7 +515,7 @@ what it could not do.
    refers to another unit's file; the one inheritance is a job from its first
    prerequisite.
 4. No raster image under `app/src/main/res`, no bundled font, and no colour
-   written outside `ui/theme/` (the launcher icon's colours in
+   written outside `ui/theme/EsperColors.kt` (the launcher icon's colours in
    `res/values/colors.xml` excepted).
 5. **No picture a test compares shows shipped content.** Reference pictures
    are drawn from fixtures only, and a unit's own pictures are CI artifacts,
@@ -529,8 +529,8 @@ what it could not do.
    the fight view with the whole board one tap away, and a token is never
    smaller than 16 dp. The "zoom 20–21" sentences under Combat describe the
    app as built; the pull request that changes the camera corrects them.
-8. **A fight never waits on a tile.** The paper ground, the board and the HUD
-   draw with tiles slow, missing or blank.
+8. **An Encounter never waits on a tile.** The paper ground, the board and
+   the HUD draw with tiles slow, missing or blank.
 9. Nothing is said by colour alone. Text in an Encounter is 14 sp or more
    (the map attribution is 12 sp, and a die's number is drawn at 14 dp or
    more), a touch target is 48 dp or more, and the contrast floors are a test.
@@ -547,6 +547,7 @@ what it could not do.
 | --- | --- | --- |
 | Map / world | implemented | osmdroid + OSM tiles, `ui/MapScreen.kt` |
 | Self-hosted tiles | **required before launch** | OSM's public servers block heavy use; Protomaps/PMTiles recommended |
+| Visual identity | designed, not built | Field Mat: `docs/VISUALS.md`, rollout in its §9 |
 | Grid overlay on real map | MVP | Pure-Kotlin axial hex, 1 m across flats, projected onto lat/lon by a local tangent plane. **Deviation from H3 — see Combat > Grid.** `engine/geometry` |
 | Elevation | not started | Real terrain data, keyless source, graceful flat fallback. ~30 m data gives tilt, not height tactics |
 | ATB turn order | MVP | Discrete gauge ticks at `speed`; flat action cost. `engine/combat/CombatEngine.kt` |
