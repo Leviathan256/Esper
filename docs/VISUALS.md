@@ -1900,7 +1900,8 @@ unit, the number each target needs, so the app stops computing them (§4.4).
 - **A merged look restarts the server.** Unit files are baked into its image
   and the deploy workflow fires on any change under `content/`, so a redrawn
   ear restarts the one replica, dropping sign-ins in flight and the positions
-  held in memory. Levi may batch look merges.
+  held in memory. Levi accepts this for now and batches look merges; a
+  look-only change that skips the restart is #44.
 - **Robolectric is not a phone.** Its text metrics differ; a layout that fits
   in a picture can clip on a device. Font-scale and long-name cases need a look
   on a phone.
