@@ -53,7 +53,7 @@ The paper wash and grid drawn over the real map inside an Encounter's leash ring
 _Avoid_: arena, battle scene, battlefield screen
 
 **Fight view**:
-The camera an Encounter opens in: close enough to choose a cell, with part of the board off screen.
+The camera an Encounter opens in: close enough to choose a cell, with part of the board off screen. It names a camera; the thing on screen is still an Encounter, never "a fight".
 _Avoid_: close-up, zoomed-in view, action view
 
 **Whole board**:

@@ -12,9 +12,9 @@ Esper has no artist and no image model: a look has to be something a Claude Code
 
 ## Consequences
 
-- The strict Rust loader must know `look` before any content file carries it. The server checks a look's structure and refuses to start on a malformed one; it does not judge a drawing.
+- The strict Rust loader must know `look` before any content file carries it. The server checks a look's structure, by rules that one file decides, and refuses to start on a malformed one; it does not judge a drawing.
 - Every monster gets a drawn glyph, so player-added ones will be uneven. The baseline, an ink stamp on a tint, has to look intended with no detail at all, and pixel checks and a focus render are what a run uses in place of an eye.
-- No committed picture may show shipped content: reference pictures are drawn from fixtures and a unit's own pictures are CI artifacts. Otherwise every new monster would rewrite a shared binary file.
-- Likeness between two looks is checked only for the files a pull request changes, never as a test on `main`, so two pull requests that each pass cannot turn `main` red together.
+- No picture a test compares may show shipped content: reference pictures are drawn from fixtures, and a unit's own pictures are CI artifacts, written and never compared. Otherwise every new monster would rewrite a shared binary file. The design's own mockups show the six starting units and are frozen.
+- Two checks need a second file: likeness between two looks, and a job's mark against the glyph it inherits. Both run only for the files a pull request changes, never as a test on `main` and never in the server, so two pull requests that each pass cannot turn `main` red or stop the server together. The price is that a pull request redrawing a glyph and another adding a mark to it can merge into a job that draws badly; nothing breaks, and the next focus render of either file reports it.
 - A unit with no look still draws, as a monogram with a hue from a hash of its id, so content never waits on art.
 - Colour cannot tell monsters apart in a fight. That is the glyph's job on the board, and the plate's in the bestiary.

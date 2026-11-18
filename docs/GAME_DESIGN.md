@@ -499,7 +499,11 @@ How the game looks is designed in [`docs/VISUALS.md`](VISUALS.md), with every
 colour, size and path a run needs and the way to render and check its work. A
 run that draws anything reads that file first. None of it is built yet; its
 rollout section is the order. These are its hard rules, here because every run
-reads this file:
+reads this file. A rule binds from the rollout step that builds what it is
+checked with: looks from step 1 (until that is on `main`, no content file
+carries `look`), render and look from steps 0 and 3, colours from step 4.
+Before that, a run follows the rule where it can and says in the pull request
+what it could not do.
 
 1. **On the board, colour says whose side a unit is on, never which monster it
    is.** The frame says it too: a circle for your party, a diamond for
@@ -511,10 +515,13 @@ reads this file:
    refers to another unit's file; the one inheritance is a job from its first
    prerequisite.
 4. No raster image under `app/src/main/res`, no bundled font, and no colour
-   written outside `ui/theme/`.
-5. **No committed picture shows shipped content.** Reference pictures are drawn
-   from fixtures only, and a unit's own pictures are CI artifacts, so adding a
-   monster never changes a file another pull request touches.
+   written outside `ui/theme/` (the launcher icon's colours in
+   `res/values/colors.xml` excepted).
+5. **No picture a test compares shows shipped content.** Reference pictures
+   are drawn from fixtures only, and a unit's own pictures are CI artifacts,
+   written and never compared, so adding a monster never changes a file
+   another pull request touches. The mockups under `docs/visuals/` show the
+   six starting units and are frozen: no content pull request edits them.
 6. Every map in a test, an artifact or a committed picture is Fixture Town, an
    invented place. Never a fetched tile, a real coordinate or a real place
    name.
@@ -524,10 +531,12 @@ reads this file:
    app as built; the pull request that changes the camera corrects them.
 8. **A fight never waits on a tile.** The paper ground, the board and the HUD
    draw with tiles slow, missing or blank.
-9. Nothing is said by colour alone. Text in an Encounter is 14 sp or more, a
-   touch target is 48 dp or more, and the contrast floors are a test.
-10. Motion never blocks input and never loops: one flash per event, at most
-    three a second, and with animations off every event is a still.
+9. Nothing is said by colour alone. Text in an Encounter is 14 sp or more
+   (the map attribution is 12 sp, and a die's number is drawn at 14 dp or
+   more), a touch target is 48 dp or more, and the contrast floors are a test.
+10. Motion never blocks input and never loops (the loading spinner excepted):
+    one flash per event, at most three a second, and with animations off every
+    event is a still.
 11. A change to anything on screen, or to a `look`, is rendered and looked at
     before the pull request opens, and the pull request says which pictures
     were looked at.
