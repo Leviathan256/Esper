@@ -551,7 +551,7 @@ pull request what it could not do.
 | --- | --- | --- |
 | Map / world | implemented | osmdroid + OSM tiles, `ui/MapScreen.kt` |
 | Self-hosted tiles | **required before launch** | OSM's public servers block heavy use; Protomaps/PMTiles recommended |
-| Visual identity | designed, not built | Field Mat: `docs/VISUALS.md`, rollout in its §9 |
+| Visual identity | designed; looks in content, checked by the server | Field Mat: `docs/VISUALS.md`, rollout in its §9. Step 1a: each unit's `look` (`content/schema/look.schema.md`); the app does not draw it yet |
 | Grid overlay on real map | MVP | Pure-Kotlin axial hex, 1 m across flats, projected onto lat/lon by a local tangent plane. **Deviation from H3 — see Combat > Grid.** `engine/geometry` |
 | Elevation | not started | Real terrain data, keyless source, graceful flat fallback. ~30 m data gives tilt, not height tactics |
 | ATB turn order | MVP | Discrete gauge ticks at `speed`; flat action cost. `engine/combat/CombatEngine.kt` |
