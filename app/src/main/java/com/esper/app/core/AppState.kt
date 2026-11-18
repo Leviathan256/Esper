@@ -20,7 +20,12 @@ object MapState {
     @Volatile var longitude: Double = 0.0
     @Volatile var zoom: Double = 3.5
 
-    fun describe(): String = String.format(Locale.US, "%.5f, %.5f @ z%.1f", latitude, longitude, zoom)
+    /**
+     * Zoom only, never the centre: the snapshot becomes a public workflow input
+     * and is printed in a public Actions log, and the map centre is where the
+     * player is standing.
+     */
+    fun describe(): String = String.format(Locale.US, "z%.1f", zoom)
 }
 
 /**
@@ -41,7 +46,7 @@ data class AppStateSnapshot(
     val sdkInt: Int,
     val locale: String,
     val capturedAt: String,
-    val mapPosition: String,
+    val mapZoom: String,
     val updateStatus: String,
     val lastCrash: String?,
     val recentEvents: List<String>,
@@ -56,7 +61,7 @@ data class AppStateSnapshot(
         put("android", "$androidRelease (API $sdkInt)")
         put("locale", locale)
         put("capturedAt", capturedAt)
-        put("mapPosition", mapPosition)
+        put("mapZoom", mapZoom)
         put("updateStatus", updateStatus)
         put("lastCrash", lastCrash ?: JSONObject.NULL)
         put("recentEvents", org.json.JSONArray(recentEvents))
@@ -68,7 +73,7 @@ data class AppStateSnapshot(
         appendLine("commit:   $gitSha")
         appendLine("device:   $device — Android $androidRelease (API $sdkInt)")
         appendLine("locale:   $locale")
-        appendLine("map:      $mapPosition")
+        appendLine("map zoom: $mapZoom")
         appendLine("updates:  $updateStatus")
         appendLine("captured: $capturedAt")
         if (lastCrash != null) {
@@ -99,7 +104,7 @@ data class AppStateSnapshot(
                 sdkInt = Build.VERSION.SDK_INT,
                 locale = Locale.getDefault().toLanguageTag(),
                 capturedAt = iso.format(Date()),
-                mapPosition = MapState.describe(),
+                mapZoom = MapState.describe(),
                 updateStatus = updateStatus,
                 lastCrash = CrashLog.read(context),
                 recentEvents = EventLog.snapshot(),
