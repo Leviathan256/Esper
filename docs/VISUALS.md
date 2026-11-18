@@ -275,10 +275,8 @@ The map is the mat, so it is quietened, never hidden.
 
 **Today, on raster tiles.** Five settings, the first four on both `MapView`s:
 
-1. `setTilesScaledToDpi(true)`. One tile pixel becomes one dp, so tile labels
-   are readable and camera numbers are dp. osmdroid keeps the tile size in a
-   static (`TileSystem.setTileSize`), so **both map screens must set it**; one
-   without it changes the other's scale.
+1. Tiles scaled to the density (built: both `MapView`s). One tile pixel
+   becomes one dp, so tile labels are readable and camera numbers are dp.
 2. `overlayManager.tilesOverlay.setColorFilter(ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0.6f) }))`.
    Roads and labels calm down, water stays blue, grass stays green.
 3. `tilesOverlay.loadingBackgroundColor` and `loadingLineColor` set to `paper`,
@@ -286,10 +284,9 @@ The map is the mat, so it is quietened, never hidden.
 4. In an Encounter: `paper` at 50% inside the leash ring, `ink` at 13% outside
    it. Past zoom 19 the tiles are enlarged about 20 times without smoothing:
    blocks about 8 dp across, no blur; the wash makes it "paper over the map".
-5. On both maps,
-   `zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)`.
-   osmdroid shows its stock plus and minus buttons on a touch unless told not
-   to, and they get in the way of play. In an Encounter the pinch and the
+5. No stock zoom buttons on either map (built). osmdroid shows its plus and
+   minus buttons on a touch unless told not to, and they get in the way of
+   play. In an Encounter the pinch and the
    Whole board button do their work; the walking map is zoomed by pinch alone
    until it has side buttons of its own (#43).
 
@@ -319,10 +316,8 @@ an Encounter, so "Why the app asks for location" needs a sentence first.
 
 Camera rules are in **dp per metre**, not zoom levels: pixels per metre at a
 zoom level change with latitude. With tiles scaled to the density,
-
-```
-zoom = log2(dpPerMetre * 40075016.686 * cos(latitude) / 256)
-```
+`CameraMath.zoomFor` turns a scale into a zoom from the latitude
+(`app/.../ui/game/CameraMath.kt`), and `Spec.kt` holds the numbers below.
 
 | View | dp per metre | A 1 m cell is | Zoom at 0° / 40° / 60° | For |
 |---|---|---|---|---|
@@ -1753,21 +1748,6 @@ Each lands with the pull request that makes it true.
 
 **`docs/GAME_DESIGN.md`**
 
-- *Combat > Grid* (settled text; step 2). Replace "Rendering needs zoom 20–21
-  (8.7 px and 17.5 px per cell at mid latitudes), which is at or beyond the
-  maximum the standard OSM raster layer serves — confirm the exact cap against
-  whichever tile source is chosen, and expect an overzoomed, blurry base map at
-  combat zoom either way." with: "Rendering is set in dp per metre, not zoom
-  levels (`docs/VISUALS.md` §4.3): a fight opens at 34 dp per metre, with the
-  whole board one tap away at about 16. On raster tiles scaled to the screen's
-  density that is zoom 20 to 22.5, up to three levels past the 19 the standard
-  OSM layer serves — confirm the cap against whichever tile source is chosen,
-  and expect an enlarged, coarse base map under a fight either way." The same
-  pull request deletes the last sentence of rule 7 under *Visuals*, which
-  points at the old text.
-- *Tile source* (step 2). "1 m cells want zoom 20–21, at or past what the
-  standard layer serves" becomes "1 m cells want zoom 20–22.5, past what the
-  standard layer serves".
 - *Systems* table. The row `Visual identity`, added with this document as
   "designed, not built" and updated as steps land; the notes of `Map / world`
   and `Grid overlay on real map` gain the camera and the mat.

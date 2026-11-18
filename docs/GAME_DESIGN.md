@@ -107,10 +107,12 @@ which reads correctly for a game played outdoors. But cell count scales with the
 square of the radius: a 10–15 m radius gives a 300–900 cell board, the same
 order as an FFT map, while a 100 m radius would be ~35,000 cells and no longer a
 tactical board at all. **The radius, not the cell size, is what keeps combat
-tactical.** Rendering needs zoom 20–21 (8.7 px and 17.5 px per cell at mid
-latitudes), which is at or beyond the maximum the standard OSM raster layer
-serves — confirm the exact cap against whichever tile source is chosen, and
-expect an overzoomed, blurry base map at combat zoom either way.
+tactical.** Rendering is set in dp per metre, not zoom levels
+(`docs/VISUALS.md` §4.3): a fight opens at 34 dp per metre, with the whole
+board one tap away at about 16. On raster tiles scaled to the screen's density
+that is zoom 20 to 22.5, up to three levels past the 19 the standard OSM layer
+serves — confirm the cap against whichever tile source is chosen, and expect an
+enlarged, coarse base map under a fight either way.
 
 **MVP deviation: a local hex grid, not H3.** The recommendation above stands for
 territory work, and the reasons for it — globally stable cell IDs and a cheap
@@ -140,7 +142,7 @@ blocks heavy users without notice. Esper is close to a worst case for it:
 
 - a location-based game means constant panning by every player, which is heavy
   use by definition;
-- 1 m cells want zoom 20–21, at or past what the standard layer serves;
+- 1 m cells want zoom 20–22.5, past what the standard layer serves;
 - prefetching and "download this area for later" are explicitly prohibited —
   but a game played outdoors on patchy signal genuinely needs offline tiles.
 
@@ -529,8 +531,7 @@ pull request what it could not do.
    name.
 7. Sizes on the map are dp per metre, not zoom levels. An Encounter opens in
    the fight view with the whole board one tap away, and a token is never
-   smaller than 16 dp. The "zoom 20–21" sentences under Combat describe the
-   app as built; the pull request that changes the camera corrects them.
+   smaller than 16 dp.
 8. **An Encounter never waits on a tile.** The paper ground, the board and
    the HUD draw with tiles slow, missing or blank.
 9. Nothing is said by colour alone. Text in an Encounter is 14 sp or more
@@ -551,8 +552,8 @@ pull request what it could not do.
 | --- | --- | --- |
 | Map / world | implemented | osmdroid + OSM tiles, `ui/MapScreen.kt` |
 | Self-hosted tiles | **required before launch** | OSM's public servers block heavy use; Protomaps/PMTiles recommended |
-| Visual identity | designed, not built | Field Mat: `docs/VISUALS.md`, rollout in its §9 |
-| Grid overlay on real map | MVP | Pure-Kotlin axial hex, 1 m across flats, projected onto lat/lon by a local tangent plane. **Deviation from H3 — see Combat > Grid.** `engine/geometry` |
+| Visual identity | in progress | Field Mat: `docs/VISUALS.md`, rollout in its §9. Built: the camera (step 2) |
+| Grid overlay on real map | MVP | Pure-Kotlin axial hex, 1 m across flats, projected onto lat/lon by a local tangent plane. **Deviation from H3 — see Combat > Grid.** `engine/geometry`. The camera frames it in dp per metre (`ui/game/CameraMath.kt`): an Encounter opens in the fight view, the whole board one tap away |
 | Elevation | not started | Real terrain data, keyless source, graceful flat fallback. ~30 m data gives tilt, not height tactics |
 | ATB turn order | MVP | Discrete gauge ticks at `speed`; flat action cost. `engine/combat/CombatEngine.kt` |
 | Movement leash | MVP | 12 m radius; GPS centres the circle with hysteresis, never the avatar |
