@@ -104,7 +104,10 @@ fn shipped_content_loads() {
         assert!(c.jobs.iter().any(|j| j.id == id), "missing job {id}");
     }
     for id in ["goblin", "slime", "wolf"] {
-        assert!(c.monsters.iter().any(|m| m.id == id), "missing monster {id}");
+        assert!(
+            c.monsters.iter().any(|m| m.id == id),
+            "missing monster {id}"
+        );
     }
 }
 
