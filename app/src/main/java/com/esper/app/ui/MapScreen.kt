@@ -43,6 +43,7 @@ import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint as OsmGeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
@@ -74,6 +75,11 @@ fun MapScreen(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            // One tile pixel is one dp. osmdroid keeps the tile size in a
+            // static: CombatScreen sets it too, or each changes the other's scale.
+            setTilesScaledToDpi(true)
+            // Zoomed by pinch alone until it has side buttons of its own (#43).
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
             controller.setZoom(MapState.zoom)
             controller.setCenter(OsmGeoPoint(MapState.latitude, MapState.longitude))
         }
