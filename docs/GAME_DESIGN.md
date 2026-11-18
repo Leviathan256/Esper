@@ -610,6 +610,14 @@ rate-limits them, and dispatches on their behalf — plus a rule that
 player-originated PRs never auto-merge. Treat that as a prerequisite for public
 launch, not a later polish item.
 
+The same goes for what a dispatched run may execute. Once the dispatch
+workflow sets up Gradle and Cargo so a run can render and look at its work
+(`docs/VISUALS.md` §7, rollout step 0), the run executes code it wrote, in a
+job that holds a repository write token and the Anthropic credential, while
+acting on request text it cannot trust. Its turn limit is also the spend
+limit. That is acceptable while every dispatcher is someone you gave repository
+access to, and must be settled before open enrolment.
+
 ## Open questions
 
 <!-- Park undecided things here so runs don't silently decide them for you. -->

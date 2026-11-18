@@ -18,4 +18,4 @@ Single-context (root `GLOSSARY.md` + `docs/adr/`, created lazily). See `docs/age
 
 ### Feature workflow
 
-Grill → spec → tickets → implement → review, in that order, for any change bigger than a one-file fix. See `docs/agents/workflow.md`. The stages are for interactive sessions: a run dispatched from the app has no user to start one, so it implements directly and opens a pull request.
+Grill → spec → tickets → implement → review, in that order, for any change bigger than a one-file fix. See `docs/agents/workflow.md`.

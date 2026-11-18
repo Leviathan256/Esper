@@ -112,7 +112,7 @@ run from its document alone, and three judges scored them (150 points).
 | **C. Blazon** | Units as coats of arms composed from four words and a shared library of charges. Nothing is drawn per monster. | 111 |
 | **B. Daylight Battle Mat** | Like A, with HP shown as the token draining of colour, real map geometry inked over the tiles, a bottom navigation bar. | 103 |
 
-A won because it is the clearest board at the size a fight is played, the only
+Levi chose A on 2026-11-18. It won because it is the clearest board at the size a fight is played, the only
 one whose loop covers both a unit's look and whole screens, and the one that
 keeps the D&D third of the game: creatures with faces, dice on screen. C lost on
 the one-second glance: colour said which monster, so hostiles could wear the
@@ -286,12 +286,12 @@ The map is the mat, so it is quietened, never hidden.
 4. In an Encounter: `paper` at 50% inside the leash ring, `ink` at 13% outside
    it. Past zoom 19 the tiles are enlarged about 20 times without smoothing:
    blocks about 8 dp across, no blur; the wash makes it "paper over the map".
-5. On the Encounter's map,
+5. On both maps,
    `zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)`.
    osmdroid shows its stock plus and minus buttons on a touch unless told not
-   to, and they would float over the mat; the pinch and the Whole board button
-   do their work. The walking map keeps them, as today: they are its only
-   one-handed zoom. No test picture shows them.
+   to, and they get in the way of play. In an Encounter the pinch and the
+   Whole board button do their work; the walking map is zoomed by pinch alone
+   until it has side buttons of its own (#43).
 
 **An Encounter never waits on a tile.** osmdroid downloads nothing above the
 source's zoom 19 and only enlarges tiles already in the phone's cache. With
@@ -308,7 +308,7 @@ labels `inkSoft`. No colour filter, and the wash drops to 30%. Nothing in the
 game layer changes: the board needs two facts from the map, where the anchor is
 on screen and how many pixels a metre is.
 
-**Survey ink (optional, waits on Levi).** The app already
+**Survey ink (optional, not now).** The app already
 receives roads, paths, water and buildings within 40 m for the safety check
 (`GET /v1/hazards`) and throws them away. Drawing those shapes in `inkSoft`
 over the coarse raster would show real geometry at one metre per cell before
@@ -1722,7 +1722,7 @@ is workflow files only, so its deletions ride with step 0b.
 | 0 | **Workflows** | One pull request with every workflow change of §7: changes 2 to 7 to `claude-dispatch.yml` and the two `ci.yml` hunks. Workflow files only. Then, and only once it has merged, the secret (§7, change 1). | CI is green on it. Then, with the secret added, a run dispatched with a context that holds an invented `mapPosition` (for example `"0.0, 0.0"`, never a real one) and asked to add one small PNG under a scratch path and open a pull request does so: the commit is on its `ask/` branch, `main` is unchanged, the pull request exists with that branch as its head, the run's log shows no `mapPosition`, and it reports `gradle -v` and `cargo -V`. Its upload step ran. Note whether CI on that pull request waited for approval (§7), then close it unmerged. |
 | 0b | **A unit is one file** | The two lists of expected ids (`server/rules/src/content/tests.rs`, `ShippedContentTest.kt`) go from "equals these ids" to "contains the six starting ids". README's "current map centre and zoom" becomes "current map zoom", which is what the app sends. | A scratch monster file with no `look` passes both suites with no other file touched. |
 | 1 | **Looks in Rust** | Rust `Look` and its one-file rules, with one rejected case per rule of §4.5's field table in `server/rules/src/content/tests.rs`, in that file's style (each limit plus one, an unknown hue, an unknown tone, an unknown key in `look`); `content/fixtures/look/`; `tests/look_checks/`, `tests/looks.rs` (the fixture files and the fixed cases of §7, never content); the `looks_sheet` example with `--focus`; the schema docs of §10; `look` in the six content files. The app ignores the field. It may land as two pull requests: 1a is everything but the `looks_sheet` example, 1b the example and README's command. CI's looks steps stay skipped until 1b, and §8 applies from 1b. | `cargo test`, `cargo fmt --check` and `cargo clippy --all-targets --locked -- -D warnings` (CI runs all three) and `gradle :engine:test` pass. CI's looks steps run instead of being skipped, and the sheet shows the five units that have a glyph with the numbers of §4.5's table. `--focus jobs/knight.json` prints `no glyph: the app draws its monogram, hue crimson` and exits 0. |
-| 2 | **The camera** | `setTilesScaledToDpi(true)` on both map views; the arithmetic of §4.3 as pure functions, with the numbers of §4.2 and §4.3 as the start of `Spec.kt`; the Encounter opens in the fight view with the pinch range raised; `Whole board` / `Fight view` as a plain button beside `Wait`; osmdroid's zoom buttons hidden on the Encounter's map; the corrected Combat sentences (§10). No new look. The walking map still opens at zoom 19.0, so from this step it draws 2.6 times larger and coarser; step 10 gives it its own camera. | `CameraMathTest` (plain JVM) holds §4.3: 34 dp per metre is zoom 22.34, 21.96 and 21.34 at 0°, 40° and 60°; the whole board is 16.03 dp per metre on a 412 dp map. For the fight view, with the box already grown and the map 412 x 500 dp: 10 m wide and 10 m tall gets 34, 20 m wide gets 20.6, 30 m wide gets the whole-board 16.03, and 10 m wide and 20 m tall gets 25. Then Levi opens an Encounter on his phone and reports in words: a cell is about 5 mm, the enlarged tiles are drawn, the button shows the whole board, whether an enlarged label makes dark patches that cover most of a cell (§4.1), and whether the grid still reads over the blocks (§4.2). No screenshot of the real map is posted to the repository: it would show where he is. **If osmdroid does not draw tiles enlarged this far, stop and ask Levi.** The fallback is a fight view capped at the closest scale that still draws the map, with tokens keeping their sizes. |
+| 2 | **The camera** | `setTilesScaledToDpi(true)` on both map views; the arithmetic of §4.3 as pure functions, with the numbers of §4.2 and §4.3 as the start of `Spec.kt`; the Encounter opens in the fight view with the pinch range raised; `Whole board` / `Fight view` as a plain button beside `Wait`; osmdroid's zoom buttons hidden on both maps; the corrected Combat sentences (§10). No new look. The walking map still opens at zoom 19.0, so from this step it draws 2.6 times larger and coarser; step 10 gives it its own camera. | `CameraMathTest` (plain JVM) holds §4.3: 34 dp per metre is zoom 22.34, 21.96 and 21.34 at 0°, 40° and 60°; the whole board is 16.03 dp per metre on a 412 dp map. For the fight view, with the box already grown and the map 412 x 500 dp: 10 m wide and 10 m tall gets 34, 20 m wide gets 20.6, 30 m wide gets the whole-board 16.03, and 10 m wide and 20 m tall gets 25. Then Levi opens an Encounter on his phone and reports in words: a cell is about 5 mm, the enlarged tiles are drawn, the button shows the whole board, whether an enlarged label makes dark patches that cover most of a cell (§4.1), and whether the grid still reads over the blocks (§4.2). No screenshot of the real map is posted to the repository: it would show where he is. **If osmdroid does not draw tiles enlarged this far, stop and ask Levi.** The fallback is a fight view capped at the closest scale that still draws the map, with tokens keeping their sizes. |
 | 3 | **The harness, on one screen** | Roborazzi, Robolectric, the Gradle lines, `snap()` without its `EsperTheme` wrapper, `SignInScreen` split into `SignInContent`, the first committed picture, the raster guard. | CI is green; the pull request shows `signin.png`; the record command prints `SNAP wrote app/src/test/snapshots/signin.png`; a plain `gradle :app:testDebugUnitTest` fails and prints the "Screenshots are off" message. With one colour changed in `SignInContent` and nothing recorded, the verify command fails and names `signin.png`; the change is undone. Recorded again on another runner with no code change, `git status` lists no PNG; if it does, no picture is committed: all become artifacts, and CI compares them against `main`. |
 | 4 | **The theme** | `EsperColors`, `EsperTheme`, the rest of `Spec`, `Surfaces`; `ThemeContrastTest`; the colour and font guards; the launcher icon; `enableEdgeToEdge` (§4.4); `EsperTheme` in `snap()`; sign-in and settings restyled. The twelve colour literals left in `MapScreen.kt`, `CombatScreen.kt` and `HexGridOverlay.kt` become the theme colour of the same role at the alpha each has today (`ally` for the player's side, where it can go and the leash circle's fill; `foe` for hostiles and what it can hit; `turn` for the acting unit; `ink` for the grid, the circle's line and the attribution's text; `paper` behind the attribution), with no other change to those files. Pictures `signin`, `settings`. | All guards pass. The run counts one gold button in each picture. |
 | 5 | **The theme on every screen** | Every other screen split into `...Content` and restyled with no layout change beyond §4.6: creator, character sheet, Ask Claude, Prompts, the gates, the map screen's card. The map card is re-themed only and keeps every line it has today; step 10 moves them to the status chip and the error card and builds the card of §4.6. Pictures `creator`, `sheet`, `ask_claude`, and the artifact `sheet_font130`. `creator` and `sheet` have no plates yet; step 8 records them again. | The guards still pass. One gold button in each picture. No text is cut in `sheet_font130`. |
@@ -1740,8 +1740,9 @@ is workflow files only, so its deletions ride with step 0b.
 - The Flee button (with server combat).
 - How an Absent character, the vote on what it does and the AI Driver show in
   an Encounter.
-- Survey ink (if Levi says yes), and the vector map style (with the tile
+- Survey ink (Levi: not now), and the vector map style (with the tile
   work).
+- Our own zoom buttons along the side of the walking map (#43).
 - Pets, companions and other players (frames are already defined).
 
 ---
@@ -1774,6 +1775,8 @@ Each lands with the pull request that makes it true.
   it is built: "During an Encounter the app keeps the map shapes it fetched for
   the safety check in memory to draw paths, water and buildings on the board,
   and drops them when the Encounter ends."
+- *Who is allowed to vibe-code*: a paragraph on what a dispatched run may
+  execute once step 0 lands, added with this document.
 - *Visuals*: added with this document. Step 10 deletes its sentences on which
   step a rule binds from.
 
@@ -1807,8 +1810,7 @@ gains the coming turn order, each unit's reach as cells and, for the acting
 unit, the number each target needs, so the app stops computing them (§4.4).
 
 **`README.md`**: "Build locally" gains the two render commands (steps 1, 3).
-**`CLAUDE.md`**: a pointer to this file and a dispatched run's exemption from
-the staged feature workflow, added with this document.
+**`CLAUDE.md`**: a pointer to this file, added with this document.
 
 **`.github/workflows/`**: `claude-dispatch.yml` and `ci.yml`, in step 0 only.
 
