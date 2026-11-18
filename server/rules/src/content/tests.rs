@@ -568,3 +568,220 @@ fn every_issue_is_listed_not_just_the_first() {
     assert!(err.0.len() >= 5, "{:?}", err.0);
     assert!(err.to_string().lines().count() > 2);
 }
+
+// --- Looks (content/schema/look.schema.md) ---
+
+const GOBLIN_LOOK: &str = r#""look": {
+    "glyph": "M12 6 C14.6 6 16.6 7.6 17.2 10 L23.5 5 L20 14.5 C19.2 18 15.6 21 12 21.5 C8.4 21 4.8 18 4 14.5 L0.5 5 L6.8 10 C7.4 7.6 9.4 6 12 6 Z M7 11.4 L10.8 13 L10.2 15.2 L7.6 14.4 Z M17 11.4 L16.4 14.4 L13.8 15.2 L13.2 13 Z",
+    "hue": "moss",
+    "details": [ { "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" } ]
+  },"#;
+
+fn with_look(text: &str, look: &str) -> String {
+    text.replacen(
+        "\"schemaVersion\": 1,",
+        &format!("\"schemaVersion\": 1, {look}"),
+        1,
+    )
+}
+
+#[test]
+fn a_job_or_monster_may_carry_a_look() {
+    let c = load(
+        &texts(&[("squire.json", &with_look(SQUIRE, GOBLIN_LOOK))]),
+        &texts(&[("goblin.json", &with_look(GOBLIN, GOBLIN_LOOK))]),
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
+    let look = c.monsters[0].look.as_ref().unwrap();
+    assert_eq!(look.hue.as_deref(), Some("moss"));
+    assert_eq!(look.details[0].tone, "hue");
+    assert_eq!(c.jobs[0].look, c.monsters[0].look);
+    assert_eq!((job().look, monster().look), (None, None));
+    let empty = with_look(GOBLIN, r#""look": {},"#);
+    assert_eq!(
+        load(&BTreeMap::new(), &texts(&[("g.json", &empty)]))
+            .unwrap()
+            .monsters[0]
+            .look,
+        Some(Look::default())
+    );
+}
+
+fn look_issues(look: Look) -> Vec<Issue> {
+    let mut issues = job_issues(Job {
+        look: Some(look.clone()),
+        ..job()
+    });
+    issues.extend(monster_issues(Monster {
+        look: Some(look),
+        ..monster()
+    }));
+    issues
+}
+
+fn detail(tone: &str, d: &str) -> LookDetail {
+    LookDetail {
+        tone: tone.into(),
+        d: d.into(),
+    }
+}
+
+#[test]
+fn an_unknown_key_in_a_look_is_rejected() {
+    let in_look = with_look(GOBLIN, r#""look": { "hue": "moss", "colour": "red" },"#);
+    let in_detail = with_look(
+        SQUIRE,
+        r#""look": { "details": [ { "tone": "ink", "d": "M1 1 L2 2 Z", "alpha": 1 } ] },"#,
+    );
+    let issues = load_err(&[("squire.json", &in_detail)], &[("goblin.json", &in_look)]);
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.source == "goblin.json" && i.message.contains("`colour`")),
+        "{issues:?}"
+    );
+    assert!(
+        issues
+            .iter()
+            .any(|i| i.source == "squire.json" && i.message.contains("`alpha`")),
+        "{issues:?}"
+    );
+}
+
+#[test]
+fn an_unknown_hue_or_tone_is_rejected() {
+    let issues = look_issues(Look {
+        hue: Some("teal".into()),
+        ..Look::default()
+    });
+    assert_eq!(issues.len(), 2, "{issues:?}");
+    assert!(has(&issues, "look.hue 'teal'"), "{issues:?}");
+    let issues = look_issues(Look {
+        details: vec![
+            detail("hue", "M0 0 L24 0 L24 24 Z"),
+            detail("glow", "M0 0 L24 0 L24 24 Z"),
+        ],
+        ..Look::default()
+    });
+    assert_eq!(issues.len(), 2, "{issues:?}");
+    assert!(has(&issues, "look.details[1].tone 'glow'"), "{issues:?}");
+    for hue in HUES {
+        assert_eq!(
+            look_issues(Look {
+                hue: Some(hue.into()),
+                ..Look::default()
+            }),
+            vec![]
+        );
+    }
+    for tone in TONES {
+        let ok = Look {
+            details: vec![detail(tone, "M0 0 L24 0 L24 24 Z")],
+            ..Look::default()
+        };
+        assert_eq!(look_issues(ok), vec![]);
+    }
+}
+
+/// A path of `subpaths` subpaths and `segments` segments in all, every point
+/// clear of the cut corners.
+fn path(segments: usize, subpaths: usize) -> String {
+    (0..subpaths)
+        .map(|i| {
+            let n = segments / subpaths + usize::from(i < segments % subpaths);
+            format!("M12 4{} Z", " L20 12".repeat(n))
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn glyph(d: String) -> Look {
+    Look {
+        glyph: Some(d),
+        ..Look::default()
+    }
+}
+
+fn details(n: usize, d: String) -> Look {
+    Look {
+        details: vec![detail("ink", &d); n],
+        ..Look::default()
+    }
+}
+
+#[test]
+fn each_look_limit_is_allowed_and_one_more_is_rejected() {
+    let cases = [
+        (
+            glyph(path(40, 1)),
+            glyph(path(41, 1)),
+            "look.glyph has 41 segments",
+        ),
+        (
+            glyph(path(6, 6)),
+            glyph(path(7, 7)),
+            "look.glyph has 7 subpaths",
+        ),
+        (
+            details(6, path(1, 1)),
+            details(7, path(1, 1)),
+            "look has 7 details",
+        ),
+        (
+            details(1, path(16, 1)),
+            details(1, path(17, 1)),
+            "look.details[0].d has 17 segments",
+        ),
+        (
+            details(1, path(6, 6)),
+            details(1, path(7, 7)),
+            "look.details[0].d has 7 subpaths",
+        ),
+    ];
+    for (at_limit, over, message) in cases {
+        assert_eq!(look_issues(at_limit), vec![], "{message}");
+        let issues = look_issues(over);
+        assert_eq!(issues.len(), 2, "{issues:?}");
+        assert!(has(&issues, message), "{message}: {issues:?}");
+    }
+}
+
+#[test]
+fn a_glyph_in_a_cut_corner_or_off_the_grammar_is_rejected_with_its_reason() {
+    let issues = look_issues(glyph("M1 1 L23 1 L23 23 L1 23 Z".into()));
+    assert!(
+        has(&issues, "look.glyph: point (1, 1) is inside a cut corner"),
+        "{issues:?}"
+    );
+    // Only the glyph keeps out of the corners: a detail may fill the box.
+    assert_eq!(
+        look_issues(details(1, "M1 1 L23 1 L23 23 L1 23 Z".into())),
+        vec![]
+    );
+    let issues = look_issues(details(1, "M1 1 L23 1 L23 23".into()));
+    assert!(
+        has(&issues, "look.details[0].d: a subpath does not end in Z"),
+        "{issues:?}"
+    );
+}
+
+#[test]
+fn the_starting_looks_load_with_their_sizes() {
+    let c = shipped();
+    let jobs = c.jobs.iter().map(|j| (&j.id, &j.look));
+    let units: BTreeMap<_, _> = jobs
+        .chain(c.monsters.iter().map(|m| (&m.id, &m.look)))
+        .map(|(id, look)| {
+            let look = look.as_ref().unwrap_or_else(|| panic!("{id} has no look"));
+            let size = look.glyph.as_ref().map(|g| parse_path(g, true).unwrap());
+            (id.as_str(), (look.hue.as_deref().unwrap(), size))
+        })
+        .collect();
+    assert_eq!(units["goblin"], ("moss", Some((14, 3))));
+    assert_eq!(units["slime"], ("jade", Some((15, 3))));
+    assert_eq!(units["wolf"], ("slate", Some((18, 3))));
+    assert_eq!(units["apprentice"], ("violet", Some((10, 2))));
+    assert_eq!(units["squire"], ("steel", Some((16, 1))));
+    // Knight's glyph is the first drawn by VISUALS.md §8; until then, its monogram.
+    assert_eq!(units["knight"], ("crimson", None));
+}
