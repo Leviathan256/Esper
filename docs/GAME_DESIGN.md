@@ -493,12 +493,65 @@ The framework needs, in this order:
 Abilities carry between jobs, FFT-style, so ability ownership lives with the
 character and not with the job instance.
 
+## Visuals
+
+How the game looks is designed in [`docs/VISUALS.md`](VISUALS.md), with every
+colour, size and path a run needs and the way to render and check its work. A
+run reads the part it needs, by section title: "Adding a look" and "Tier 1"
+for a new or changed unit; for the theme (a colour, a size) or a screen, that
+part of "The look", then "Fixtures" and "Tier 2"; for a rollout step, its row
+in "Rollout". It is built in the order of that section, and the Systems table
+below says how far. These are its hard rules, here because every run reads
+this file. A rule binds from the rollout step that builds what it is checked
+with: looks from step 1 (until that is on `main`, no content file carries
+`look`), the camera from step 2, render and look from steps 0 and 3, colours
+from step 4. Before that, a run follows the rule where it can and says in the
+pull request what it could not do.
+
+1. **On the board, colour says whose side a unit is on, never which monster it
+   is.** The frame says it too: a circle for your party, a diamond for
+   hostiles, a rounded square for neutrals.
+2. **Gold means "acting now" and the one primary action of a screen.** Nothing
+   else is gold.
+3. **A unit's look is data**: the `look` object in its own content file, drawn
+   from path text. A unit with no `look` still draws and plays. A look never
+   refers to another file.
+4. No raster image under `app/src/main/res`, no bundled font, and no colour
+   written outside `ui/theme/EsperColors.kt` (the launcher icon's colours in
+   `res/values/colors.xml` excepted).
+5. **No picture a test compares shows shipped content.** Reference pictures
+   are drawn from fixtures only, and a unit's own pictures are CI artifacts,
+   written and never compared, so adding a monster never changes a file
+   another pull request touches. The mockups under `docs/visuals/` show the
+   six starting units and are frozen: no content pull request edits them.
+6. Every map in a test, an artifact or a committed picture is Fixture Town, an
+   invented place. Never a fetched tile, a real coordinate or a real place
+   name.
+7. Sizes on the map are dp per metre, not zoom levels. An Encounter opens in
+   the fight view with the whole board one tap away, and a token is never
+   smaller than 16 dp. The "zoom 20–21" sentences under Combat describe the
+   app as built; the pull request that changes the camera corrects them.
+8. **An Encounter never waits on a tile.** The paper ground, the board and
+   the HUD draw with tiles slow, missing or blank.
+9. Nothing is said by colour alone. Text in an Encounter is 14 sp or more
+   (the map attribution is 12 sp, a die's number is drawn at 14 dp or more,
+   and a monogram is sized with its token), every button and control is 48 dp
+   or more (a cell is smaller, which is why a map tap only selects), and the
+   contrast floors are a test.
+10. Motion never blocks input and never loops (the loading spinner excepted):
+    one flash per event, at most three a second, and with animations off every
+    event is a still.
+11. A change to anything on screen, or to a `look`, is rendered and looked at
+    before the pull request opens, and the pull request says which pictures
+    were looked at.
+
 ## Systems
 
 | System | Status | Notes |
 | --- | --- | --- |
 | Map / world | implemented | osmdroid + OSM tiles, `ui/MapScreen.kt` |
 | Self-hosted tiles | **required before launch** | OSM's public servers block heavy use; Protomaps/PMTiles recommended |
+| Visual identity | designed, not built | Field Mat: `docs/VISUALS.md`, rollout in its §9 |
 | Grid overlay on real map | MVP | Pure-Kotlin axial hex, 1 m across flats, projected onto lat/lon by a local tangent plane. **Deviation from H3 — see Combat > Grid.** `engine/geometry` |
 | Elevation | not started | Real terrain data, keyless source, graceful flat fallback. ~30 m data gives tilt, not height tactics |
 | ATB turn order | MVP | Discrete gauge ticks at `speed`; flat action cost. `engine/combat/CombatEngine.kt` |
@@ -556,6 +609,14 @@ up means a mediating service that holds the only token, authenticates players,
 rate-limits them, and dispatches on their behalf — plus a rule that
 player-originated PRs never auto-merge. Treat that as a prerequisite for public
 launch, not a later polish item.
+
+The same goes for what a dispatched run may execute. Once the dispatch
+workflow sets up Gradle and Cargo so a run can render and look at its work
+(`docs/VISUALS.md` §7, rollout step 0), the run executes code it wrote, in a
+job that holds a repository write token and the Anthropic credential, while
+acting on request text it cannot trust. Its turn limit is also the spend
+limit. That is acceptable while every dispatcher is someone you gave repository
+access to, and must be settled before open enrolment.
 
 ## Open questions
 
