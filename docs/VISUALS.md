@@ -427,8 +427,9 @@ drawn with an HP bar anywhere else (the unit card's target) uses the same
 formula.
 
 **Acting now.** A gold ring: the token's frame path scaled 1.26 about its
-centre, stroked `turn` at `max(2, 0.09 T)` dp over `ink` 2 dp wider. Only the
-unit whose turn it is wears it, ally or hostile.
+centre, stroked `turn` at `max(2, 0.09 T)` dp over `ink` 2 dp wider, so 1 dp of
+`ink` shows each side. Only the unit whose turn it is wears it, ally or
+hostile.
 
 **Choosing.** A tap on the map selects; the gold button commits. Candidates are
 the reachable cells, the units in reach and every other unit. The tap picks the
@@ -584,7 +585,7 @@ token's centre. Strokes are centred on the frame path.
 | | Circle | Diamond | Rounded square |
 |---|---|---|---|
 | Frame path | radius `0.5 T - w/2` | square of side `0.82 T`, corner radius `0.09 T`, rotated 45° | square of side `0.86 T`, corner radius `0.14 T` |
-| Glyph box (side) | `0.66 T` | `0.60 T` | `0.62 T` |
+| Glyph box (side; upright in every frame) | `0.66 T` | `0.60 T` | `0.62 T` |
 | Extent | `T` | about `1.16 T` tip to tip | `0.86 T + w` |
 
 - Outline: `ink`, width `w = clamp(0.075 T, 1.25, 3)` dp.
@@ -1249,7 +1250,7 @@ pictures it looked at.
 
 ### Tier 1: looks, with `cargo` only (seconds)
 
-From `server/`:
+From `server/`, once rollout step 1 is on `main` (§8's gate says how to tell):
 
 ```bash
 cargo run --locked -p rules --example looks_sheet -- ../content target/looks
@@ -1257,8 +1258,9 @@ cargo run --locked -p rules --example looks_sheet -- ../content target/looks --f
 ```
 
 - The first writes `target/looks/sheet.png`: every shipped unit that has a
-  glyph as an ink stamp at 96 px, its 16 px raster enlarged, and its token in
-  the three frames. It prints one line per unit: segments, subpaths, coverage,
+  glyph as an ink stamp at 96 px, its 16 px raster enlarged 6 times with hard
+  pixels, and its token in the three frames, on `paper`; the spacing is the
+  example's own. It prints one line per unit: segments, subpaths, coverage,
   survival, bounding box, nearest three looks. Exit code 1 if a glyph fails a
   check of its own.
 - `--focus <file>` takes a unit's file, as a path under the content
@@ -1571,11 +1573,14 @@ other file changes: not its parent's file, not a table in `content/schema/`,
 not a committed picture.
 
 **This section applies once rollout step 1 is on `main`** (1b, if it lands
-in two parts). Until then the Rust loader rejects `look` and the focus command
-does not exist. A run asked for a new unit before that adds the file with no
-`look` and says in the pull request that the look is still to come. From
-step 1 on, the field table, the grammar
-and the resolving rules are in `content/schema/look.schema.md`.
+in two parts): when `server/rules/examples/looks_sheet.rs` exists. Until then
+the Rust loader rejects `look` and the focus command does not exist. A run
+asked for a new unit before that adds the file with no `look` and says in the
+pull request that the look is still to come; if the suites of step 6 then fail
+on their lists of expected ids, step 0b has not landed either, and the same
+pull request relaxes the two lists as 0b's row says (§9). From step 1 on, the
+field table, the grammar and the resolving rules are in
+`content/schema/look.schema.md`.
 
 The other fields are in `content/schema/monster.schema.md` and
 `job.schema.md`. This document sets no game numbers. Start from the shipped
@@ -1585,34 +1590,35 @@ distance), a monster starts from the shipped monster whose `xpReward` is
 nearest the one you mean to give it, and a job from its first prerequisite,
 or from `squire` with none. Read a request's words against the starting
 monsters, which run `maxHp` 4 to 9, `armorClass` 8 to 13 and `speed` 3 to 14:
-the slime's 3 is "slow". Change what the request names and what follows from
-it: a monster made tougher or deadlier than the one it started from gets its
-`xpReward` and `jobPointsReward` moved with it. `bestiaryText` is one or two
-plain sentences on how it fights. List in the pull request every number you
-chose, rewards included, so Levi can change them.
+a word means that end of its range (the slime's `speed` 3 is "slow", its
+`maxHp` 4 "fragile"). Change what the request names and what follows from it:
+a monster made tougher, deadlier or weaker than the one it started from gets
+its `xpReward` and `jobPointsReward` moved the same way. `bestiaryText` is one
+or two plain sentences on how it fights. List in the pull request every number
+you chose, rewards included, so Levi can change them.
 
 1. **Add the file with no `look`.** It is playable at once, and draws as its
-   monogram. A job names its parent in its own `prerequisites`, and that is
-   all a job needs to unlock: do not edit the parent's file or its `unlocks`
-   list. Its look is its own, like any unit's.
+   monogram from rollout step 6. A job names its parent in its own
+   `prerequisites`, and that is all a job needs to unlock: do not edit the
+   parent's file or its `unlocks` list. Its look is its own, like any unit's.
 2. **Draw the glyph.** Front view, one feature exaggerated. Say in words what
    the feature is before drawing (the wolf's ears, the hat's brim) and give it
    about a third of the figure's height or width.
    - A monster is a face or a body. A job is an emblem, an object its people
      carry.
-   - Cut eyes and slits as holes (extra subpaths), at least 2.5 units wide and
-     2.5 tall. Two eye holes read as a face at 16 px; one slot does not.
+   - Cut eyes and slits as holes (extra subpaths), at least 2.4 units wide and
+     2.4 tall. Two eye holes read as a face at 16 px; one slot does not.
    - Give the outline at least one curve or diagonal. A figure of right angles
      alone reads as a machine.
    - One check pixel is 1.5 units, and a pixel survives the erosion only with
      ink on all four sides: a part 3 units across leaves nothing, one of 4.5
      under a third, one of 6 about half. So make the body 6 units or more
-     across, 9 if it carries thin limbs. 2.5 units is the floor for a limb, a
+     across, 9 if it carries thin limbs. 2.4 units is the floor for a limb, a
      gap, an eye or a tip, never for the figure. The thin-parts check is what
      refuses a drawing.
-   - Keep a slanted edge from cutting pixels exactly in half (a 45° corner cut
-     between multiples of 1.5 does), or a symmetric drawing comes out lopsided
-     at 16 px. Look at the enlarged raster.
+   - A 45° edge through a point whose x and y are both multiples of 1.5 cuts
+     pixels exactly in half, and a symmetric drawing comes out lopsided at
+     16 px: move the edge half a unit. Step 5's enlarged raster shows it.
    - Fill the box: centred, spanning at least 15 units each way (the check is
      10 of the 16 px). Stay out of the four cut corners, within 40 segments
      and 6 subpaths (§4.5).
@@ -1624,8 +1630,8 @@ chose, rewards included, so Levi can change them.
      below is an example and may be shipped as it stands if one is asked for.
 3. **Pick a hue**, the one nearest the thing's own colour: `moss` for wood
    and the wild, `jade` for water, `slate` for stone and fur, `steel` for
-   metal, `bone` for the dead, `ember` for fire, `crimson` for blood, `violet`
-   for magic. Hues need not be unique: colour never identifies a unit.
+   metal, `violet` for magic, `crimson` for blood, `ember` for fire, `bone`
+   for the dead. Hues need not be unique: colour never identifies a unit.
 4. **Optionally add details** for the plate, usually two to four. Start with
    `{ "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" }` to colour the whole
    figure, then add rough patches: `shade` for an underside or the far side,
@@ -1637,11 +1643,12 @@ chose, rewards included, so Levi can change them.
    colour is `paper` or `ink`.
 5. **Render and look:** `--focus` with the file (§7). Open the PNG: it shows
    the plate with its hue and details, and the tokens down to 16 px in the
-   unit's own frame. Cover the name and say what the 16 px token is. If the
-   honest answer is not the creature, change the outline. The token has to
-   say its kind, not its material: stone, fire and metal are the hue's work
-   on the plate. Fix until it reads and the command exits 0. Moving, resizing
-   or flipping a drawing keeps its aligned score: redraw it.
+   unit's own frame. Say what its smallest token, the one at 16 px, shows to
+   someone not told its name. If the honest answer is not the creature,
+   change the outline. The token has to say its kind, not its material:
+   stone, fire and metal are the hue's work on the plate. Fix until it reads
+   and the command exits 0. Moving, resizing or flipping a drawing keeps its
+   aligned score: redraw it.
 6. Run `cargo test --locked -p rules` in `server/` and, while `engine/`
    exists, `gradle :engine:test --configure-on-demand`. Open the pull request;
    say which pictures you looked at. No committed picture changes. From
@@ -1712,7 +1719,7 @@ is workflow files only, so its deletions ride with step 0b.
 
 | # | Pull request | Contains | Accepted when |
 |---|---|---|---|
-| 0 | **Workflows** | One pull request with every workflow change of §7: changes 2 to 7 to `claude-dispatch.yml` and the two `ci.yml` hunks. Workflow files only. Then, and only once it has merged, the secret (§7, change 1). | CI is green on it. Then, with the secret added, a run dispatched with a context that holds a `mapPosition` and asked to add one small PNG under a scratch path and open a pull request does so: the commit is on its `ask/` branch, `main` is unchanged, the pull request exists with that branch as its head, the run's log shows no `mapPosition`, and it reports `gradle -v` and `cargo -V`. Its upload step ran. Note whether CI on that pull request waited for approval (§7), then close it unmerged. |
+| 0 | **Workflows** | One pull request with every workflow change of §7: changes 2 to 7 to `claude-dispatch.yml` and the two `ci.yml` hunks. Workflow files only. Then, and only once it has merged, the secret (§7, change 1). | CI is green on it. Then, with the secret added, a run dispatched with a context that holds an invented `mapPosition` (for example `"0.0, 0.0"`, never a real one) and asked to add one small PNG under a scratch path and open a pull request does so: the commit is on its `ask/` branch, `main` is unchanged, the pull request exists with that branch as its head, the run's log shows no `mapPosition`, and it reports `gradle -v` and `cargo -V`. Its upload step ran. Note whether CI on that pull request waited for approval (§7), then close it unmerged. |
 | 0b | **A unit is one file** | The two lists of expected ids (`server/rules/src/content/tests.rs`, `ShippedContentTest.kt`) go from "equals these ids" to "contains the six starting ids". README's "current map centre and zoom" becomes "current map zoom", which is what the app sends. | A scratch monster file with no `look` passes both suites with no other file touched. |
 | 1 | **Looks in Rust** | Rust `Look` and its one-file rules, with one rejected case per rule of §4.5's field table in `server/rules/src/content/tests.rs`, in that file's style (each limit plus one, an unknown hue, an unknown tone, an unknown key in `look`); `content/fixtures/look/`; `tests/look_checks/`, `tests/looks.rs` (the fixture files and the fixed cases of §7, never content); the `looks_sheet` example with `--focus`; the schema docs of §10; `look` in the six content files. The app ignores the field. It may land as two pull requests: 1a is everything but the `looks_sheet` example, 1b the example and README's command. CI's looks steps stay skipped until 1b, and §8 applies from 1b. | `cargo test`, `cargo fmt --check` and `cargo clippy --all-targets --locked -- -D warnings` (CI runs all three) and `gradle :engine:test` pass. CI's looks steps run instead of being skipped, and the sheet shows the five units that have a glyph with the numbers of §4.5's table. `--focus jobs/knight.json` prints `no glyph: the app draws its monogram, hue crimson` and exits 0. |
 | 2 | **The camera** | `setTilesScaledToDpi(true)` on both map views; the arithmetic of §4.3 as pure functions, with the numbers of §4.2 and §4.3 as the start of `Spec.kt`; the Encounter opens in the fight view with the pinch range raised; `Whole board` / `Fight view` as a plain button beside `Wait`; osmdroid's zoom buttons hidden on the Encounter's map; the corrected Combat sentences (§10). No new look. The walking map still opens at zoom 19.0, so from this step it draws 2.6 times larger and coarser; step 10 gives it its own camera. | `CameraMathTest` (plain JVM) holds §4.3: 34 dp per metre is zoom 22.34, 21.96 and 21.34 at 0°, 40° and 60°; the whole board is 16.03 dp per metre on a 412 dp map. For the fight view, with the box already grown and the map 412 x 500 dp: 10 m wide and 10 m tall gets 34, 20 m wide gets 20.6, 30 m wide gets the whole-board 16.03, and 10 m wide and 20 m tall gets 25. Then Levi opens an Encounter on his phone and reports in words: a cell is about 5 mm, the enlarged tiles are drawn, the button shows the whole board, whether an enlarged label makes dark patches that cover most of a cell (§4.1), and whether the grid still reads over the blocks (§4.2). No screenshot of the real map is posted to the repository: it would show where he is. **If osmdroid does not draw tiles enlarged this far, stop and ask Levi.** The fallback is a fight view capped at the closest scale that still draws the map, with tokens keeping their sizes. |
