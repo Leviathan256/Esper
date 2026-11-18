@@ -14,5 +14,6 @@
   "abilitiesGranted": ["shield_bash", "guard"],
   "prerequisites": ["squire"],
   "unlocks": [],
-  "jobPointsToMaster": 200
+  "jobPointsToMaster": 200,
+  "look": { "hue": "crimson" }
 }

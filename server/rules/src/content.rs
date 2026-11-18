@@ -10,6 +10,12 @@ use serde::Deserialize;
 
 pub const ABILITY_KEYS: [&str; 6] = ["str", "dex", "con", "int", "wis", "cha"];
 
+/// In the order the id hash indexes (look.schema.md, "Resolving a look").
+pub const HUES: [&str; 8] = [
+    "moss", "jade", "slate", "steel", "violet", "crimson", "ember", "bone",
+];
+pub const TONES: [&str; 5] = ["hue", "shade", "paper", "ink", "accent"];
+
 /// One job, authored as `content/jobs/<id>.json` (content/schema/job.schema.md).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -37,6 +43,8 @@ pub struct Job {
     pub unlocks: Vec<String>,
     #[serde(default = "hundred")]
     pub job_points_to_master: i32,
+    #[serde(default)]
+    pub look: Option<Look>,
 }
 
 /// One monster, authored as `content/monsters/<id>.json` (content/schema/monster.schema.md).
@@ -58,6 +66,29 @@ pub struct Monster {
     pub job_points_reward: i32,
     #[serde(default)]
     pub bestiary_text: String,
+    #[serde(default)]
+    pub look: Option<Look>,
+}
+
+/// How a unit is drawn (content/schema/look.schema.md). Every field is
+/// optional; the server checks its structure and never judges the drawing.
+#[derive(Debug, Clone, PartialEq, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Look {
+    #[serde(default)]
+    pub glyph: Option<String>,
+    #[serde(default)]
+    pub hue: Option<String>,
+    #[serde(default)]
+    pub details: Vec<LookDetail>,
+}
+
+/// One patch of colour on a unit's plate, clipped to its glyph.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LookDetail {
+    pub tone: String,
+    pub d: String,
 }
 
 fn one() -> i32 {
@@ -182,6 +213,7 @@ pub fn validate(jobs: &[Job], monsters: &[Monster]) -> Vec<Issue> {
                 push(format!("unlock '{u}' does not resolve to a known job"));
             }
         }
+        look(&job.look, &mut push);
     }
 
     let mut seen = HashSet::new();
@@ -209,6 +241,7 @@ pub fn validate(jobs: &[Job], monsters: &[Monster]) -> Vec<Issue> {
                 m.job_points_reward
             ));
         }
+        look(&m.look, &mut push);
     }
 
     if let Some(cycle) = find_job_graph_cycle(jobs) {
@@ -242,6 +275,127 @@ fn common(schema_version: i32, id: &str, display_name: &str, push: &mut impl FnM
     if display_name.trim().is_empty() {
         push("displayName must not be blank".into());
     }
+}
+
+fn look(look: &Option<Look>, push: &mut impl FnMut(String)) {
+    let Some(look) = look else { return };
+    if let Some(glyph) = &look.glyph {
+        path_field(glyph, "look.glyph", true, 40, push);
+    }
+    if look.details.len() > 6 {
+        push(format!(
+            "look has {} details, at most 6",
+            look.details.len()
+        ));
+    }
+    for (i, d) in look.details.iter().enumerate() {
+        path_field(&d.d, &format!("look.details[{i}].d"), false, 16, push);
+    }
+    if let Some(hue) = &look.hue
+        && !HUES.contains(&hue.as_str())
+    {
+        push(format!("look.hue '{hue}' is not one of {HUES:?}"));
+    }
+    for (i, d) in look.details.iter().enumerate() {
+        if !TONES.contains(&d.tone.as_str()) {
+            push(format!(
+                "look.details[{i}].tone '{}' is not one of {TONES:?}",
+                d.tone
+            ));
+        }
+    }
+}
+
+fn path_field(
+    d: &str,
+    field: &str,
+    cut_corners: bool,
+    max_segments: usize,
+    push: &mut impl FnMut(String),
+) {
+    match parse_path(d, cut_corners) {
+        Err(why) => push(format!("{field}: {why}")),
+        Ok((segments, subpaths)) => {
+            if segments > max_segments {
+                push(format!(
+                    "{field} has {segments} segments, at most {max_segments}"
+                ));
+            }
+            if subpaths > 6 {
+                push(format!("{field} has {subpaths} subpaths, at most 6"));
+            }
+        }
+    }
+}
+
+/// Parses a look path (look.schema.md, "Path grammar") and returns its
+/// `(segments, subpaths)`, or why it is rejected. With `cut_corners`, every
+/// point must also stay out of the box's four cut corners.
+pub fn parse_path(d: &str, cut_corners: bool) -> Result<(usize, usize), String> {
+    let mut toks = d.split(' ');
+    let (mut segments, mut subpaths) = (0, 0);
+    let mut tok = toks.next();
+    while let Some(t) = tok {
+        let first = t
+            .strip_prefix('M')
+            .ok_or(format!("expected M, found '{t}'"))?;
+        point(first, toks.next(), cut_corners)?;
+        loop {
+            let t = toks.next().ok_or("a subpath does not end in Z")?;
+            if t == "Z" {
+                break;
+            }
+            let (letter, first) = t.split_at(t.chars().next().map_or(0, char::len_utf8));
+            let points = match letter {
+                "L" => 1,
+                "C" => 3,
+                _ => return Err(format!("expected L, C or Z, found '{t}'")),
+            };
+            point(first, toks.next(), cut_corners)?;
+            for _ in 1..points {
+                point(toks.next().unwrap_or(""), toks.next(), cut_corners)?;
+            }
+            segments += 1;
+        }
+        subpaths += 1;
+        tok = toks.next();
+    }
+    if subpaths == 0 {
+        return Err("empty path".into());
+    }
+    Ok((segments, subpaths))
+}
+
+/// Checks one point, `x` and then `y`, in hundredths of a unit so the corner
+/// sums are exact.
+fn point(x: &str, y: Option<&str>, cut_corners: bool) -> Result<(), String> {
+    let (x, y) = (number(x)?, number(y.unwrap_or(""))?);
+    let far = |v: u32| 2400 - v;
+    if cut_corners
+        && [x + y, far(x) + y, x + far(y), far(x) + far(y)]
+            .iter()
+            .any(|&s| s < 400)
+    {
+        return Err(format!(
+            "point ({}, {}) is inside a cut corner",
+            x as f64 / 100.0,
+            y as f64 / 100.0
+        ));
+    }
+    Ok(())
+}
+
+/// 1 or 2 digits, optionally "." and 1 or 2 digits, 0 to 24; in hundredths.
+fn number(s: &str) -> Result<u32, String> {
+    let bad = || format!("'{s}' is not a number from 0 to 24 with at most 2 decimals");
+    let (int, frac) = s.split_once('.').unwrap_or((s, "00"));
+    let digits = |p: &str| (1..=2).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_digit());
+    if !digits(int) || !digits(frac) {
+        return Err(bad());
+    }
+    let frac: u32 = format!("{frac:0<2}").parse().map_err(|_| bad())?;
+    let v = int.parse::<u32>().map_err(|_| bad())? * 100 + frac;
+    if v > 2400 { Err(bad()) } else { Ok(v) }
 }
 
 fn range(value: i32, lo: i32, hi: i32, field: &str, push: &mut impl FnMut(String)) {

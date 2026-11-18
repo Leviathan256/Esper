@@ -46,6 +46,7 @@ default, so an older APK never crashes when it is shipped a newer monster file.
 | `xpReward` | int | — (required) | `>= 0`; added to the character's `xp` on victory |
 | `jobPointsReward` | int | — (required) | `>= 0`; added to the character's *current* job on victory |
 | `bestiaryText` | string | `""` | none; shown on the character sheet's bestiary entry |
+| `look` | object | none | optional; how the unit is drawn. Field table, path grammar and resolving rules in [`look.schema.md`](look.schema.md) |
 
 ## Flat stat block, not ability scores
 
@@ -70,8 +71,9 @@ so a critical hit can double the dice without doubling the modifier.
 ## Forward compatibility
 
 `ContentLoader` parses with `Json { ignoreUnknownKeys = true; encodeDefaults =
-true }`. A field this doc does not yet document, added by a future
-`schemaVersion` bump, is silently ignored by an older build. Monster files are
+true }`. A field this doc does not yet document, added as an optional field
+with no `schemaVersion` bump (both validators accept only version 1), is
+silently ignored by an older build. Monster files are
 read fresh from the APK every launch — there is no save-style migration chain
 for them (that exists only for `CharacterState`).
 
@@ -79,7 +81,7 @@ The Rust server (`server/rules/src/content.rs`) applies the same rules but
 **rejects** unknown keys, and refuses to start on invalid content: add a field
 to the Rust types before shipping it in a file. CI runs both loaders.
 
-## Shipped monsters
+## Starting monsters
 
 | id | notes |
 | --- | --- |
