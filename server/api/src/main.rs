@@ -1206,7 +1206,7 @@ mod tests {
         let account = sessions::tests::new_account(&pool).await;
         let token = sessions::tests::new_session(&pool, account).await;
         captured_logs();
-        let fix = r#"{"lat":12.3456789,"lon":98.7654321,"accuracyM":4.25}"#;
+        let fix = r#"{"lat":12.3456789,"lon":98.7654321,"accuracyM":4.2512345}"#;
         assert_eq!(
             post_location(&app, Some(&token), fix).await.0,
             StatusCode::NO_CONTENT
@@ -1221,7 +1221,10 @@ mod tests {
         assert!(log.contains("POST /v1/auth/register/verify 400"), "{log}");
         assert!(log.contains("POST /v1/location 204"), "{log}");
         assert!(!log.contains(&token), "{log}");
-        for n in ["12.345", "98.765", "4.25"] {
+        // Seven decimals on purpose: the log is shared by every test, and its
+        // timestamps and latencies carry six, so a shorter needle such as
+        // "4.25" matches "...:34.251234Z" by chance.
+        for n in ["12.3456789", "98.7654321", "4.2512345"] {
             assert!(!log.contains(n), "{log}");
         }
     }
