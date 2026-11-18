@@ -763,3 +763,24 @@ fn a_glyph_in_a_cut_corner_or_off_the_grammar_is_rejected_with_its_reason() {
         "{issues:?}"
     );
 }
+
+#[test]
+fn the_starting_looks_load_with_their_sizes() {
+    let c = shipped();
+    let jobs = c.jobs.iter().map(|j| (&j.id, &j.look));
+    let units: BTreeMap<_, _> = jobs
+        .chain(c.monsters.iter().map(|m| (&m.id, &m.look)))
+        .map(|(id, look)| {
+            let look = look.as_ref().unwrap_or_else(|| panic!("{id} has no look"));
+            let size = look.glyph.as_ref().map(|g| parse_path(g, true).unwrap());
+            (id.as_str(), (look.hue.as_deref().unwrap(), size))
+        })
+        .collect();
+    assert_eq!(units["goblin"], ("moss", Some((14, 3))));
+    assert_eq!(units["slime"], ("jade", Some((15, 3))));
+    assert_eq!(units["wolf"], ("slate", Some((18, 3))));
+    assert_eq!(units["apprentice"], ("violet", Some((10, 2))));
+    assert_eq!(units["squire"], ("steel", Some((16, 1))));
+    // Knight's glyph is the first drawn by VISUALS.md §8; until then, its monogram.
+    assert_eq!(units["knight"], ("crimson", None));
+}

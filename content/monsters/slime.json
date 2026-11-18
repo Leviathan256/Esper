@@ -11,5 +11,14 @@
   "attackRangeCells": 1,
   "xpReward": 15,
   "jobPointsReward": 1,
-  "bestiaryText": "A wobbling ooze that barely reacts before it is struck. The winnable first fight."
+  "bestiaryText": "A wobbling ooze that barely reacts before it is struck. The winnable first fight.",
+  "look": {
+    "glyph": "M12 5.5 C17 5.5 21 9.5 21.5 15 C22.6 16 23 17.4 23 18.6 C23 20.6 21 21.5 18.5 21.5 L5.5 21.5 C3 21.5 1 20.6 1 18.6 C1 17.4 1.4 16 2.5 15 C3 9.5 7 5.5 12 5.5 Z M9 12 C10 12 10.6 13.2 10.6 14.4 C10.6 15.6 10 16.8 9 16.8 C8 16.8 7.4 15.6 7.4 14.4 C7.4 13.2 8 12 9 12 Z M15 12 C16 12 16.6 13.2 16.6 14.4 C16.6 15.6 16 16.8 15 16.8 C14 16.8 13.4 15.6 13.4 14.4 C13.4 13.2 14 12 15 12 Z",
+    "hue": "jade",
+    "details": [
+      { "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" },
+      { "tone": "shade", "d": "M0 18.4 C6 20.4 18 20.4 24 18.4 L24 24 L0 24 Z" },
+      { "tone": "paper", "d": "M9.4 7.6 C7.4 9 5.8 11 5.2 13.6 C6.6 11.6 8.4 10 10.4 9 Z" }
+    ]
+  }
 }
