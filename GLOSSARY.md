@@ -26,6 +26,40 @@ _Avoid_: disconnected, AFK, offline
 The game playing an Absent player's character until the Encounter ends or the player returns.
 _Avoid_: autopilot, auto-battle, bot
 
+### Visuals
+
+**Look**:
+A unit's appearance as data: the `look` object in its own job or monster file. A unit with no look still draws.
+_Avoid_: sprite, skin, icon, art asset
+
+**Glyph**:
+The one shape in a look that says what a unit is. It is stamped in paper on a token and in ink on a plate.
+_Avoid_: silhouette, icon, charge, emblem alone (an emblem is a job's glyph)
+
+**Token**:
+A unit as drawn on the board and in the HUD: a frame, a side colour and a glyph.
+_Avoid_: sprite, marker, piece, avatar (the avatar is the player's character in the world)
+
+**Frame**:
+The outline of a token, which says whose side the unit is on: a circle for the player's party, a diamond for hostiles, a rounded square for neutrals.
+_Avoid_: border, badge, ring (the gold ring marks the unit acting now)
+
+**Plate**:
+The large hexagonal picture of a unit in the bestiary, on the character sheet and in the character creator.
+_Avoid_: portrait, card, avatar
+
+**Mat**:
+The paper wash and grid drawn over the real map inside an Encounter's leash ring: the board as the player sees it.
+_Avoid_: arena, battle scene, battlefield screen
+
+**Fight view**:
+The camera an Encounter opens in: close enough to choose a cell, with part of the board off screen.
+_Avoid_: close-up, zoomed-in view, action view
+
+**Whole board**:
+The camera that fits an Encounter's whole leash ring on screen, one tap from the fight view.
+_Avoid_: overview, zoomed-out view, map view
+
 ### Co-operation
 
 **Ritual**:

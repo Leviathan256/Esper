@@ -493,6 +493,45 @@ The framework needs, in this order:
 Abilities carry between jobs, FFT-style, so ability ownership lives with the
 character and not with the job instance.
 
+## Visuals
+
+How the game looks is designed in [`docs/VISUALS.md`](VISUALS.md), with every
+colour, size and path a run needs and the way to render and check its work. A
+run that draws anything reads that file first. None of it is built yet; its
+rollout section is the order. These are its hard rules, here because every run
+reads this file:
+
+1. **On the board, colour says whose side a unit is on, never which monster it
+   is.** The frame says it too: a circle for your party, a diamond for
+   hostiles, a rounded square for neutrals.
+2. **Gold means "acting now" and the one primary action of a screen.** Nothing
+   else is gold.
+3. **A unit's look is data**: the `look` object in its own content file, drawn
+   from path text. A unit with no `look` still draws and plays. A look never
+   refers to another unit's file; the one inheritance is a job from its first
+   prerequisite.
+4. No raster image under `app/src/main/res`, no bundled font, and no colour
+   written outside `ui/theme/`.
+5. **No committed picture shows shipped content.** Reference pictures are drawn
+   from fixtures only, and a unit's own pictures are CI artifacts, so adding a
+   monster never changes a file another pull request touches.
+6. Every map in a test, an artifact or a committed picture is Fixture Town, an
+   invented place. Never a fetched tile, a real coordinate or a real place
+   name.
+7. Sizes on the map are dp per metre, not zoom levels. An Encounter opens in
+   the fight view with the whole board one tap away, and a token is never
+   smaller than 16 dp. The "zoom 20–21" sentences under Combat describe the
+   app as built; the pull request that changes the camera corrects them.
+8. **A fight never waits on a tile.** The paper ground, the board and the HUD
+   draw with tiles slow, missing or blank.
+9. Nothing is said by colour alone. Text in an Encounter is 14 sp or more, a
+   touch target is 48 dp or more, and the contrast floors are a test.
+10. Motion never blocks input and never loops: one flash per event, at most
+    three a second, and with animations off every event is a still.
+11. A change to anything on screen, or to a `look`, is rendered and looked at
+    before the pull request opens, and the pull request says which pictures
+    were looked at.
+
 ## Systems
 
 | System | Status | Notes |
