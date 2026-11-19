@@ -58,7 +58,8 @@ Android app ─HTTPS─▶ Cloudflare (proxy, Full strict) ─HTTPS─▶ Traefi
 | `Cargo.toml` | workspace: `rules`, `api`. Exact versions pinned, `Cargo.lock` committed. |
 | `rust-toolchain.toml` | pinned stable toolchain + the two musl targets |
 | `rules/` | pure, no I/O: `content` (load + validate `content/`), `character` (`CharacterState`, factory, `save_codec` + migrations), `combat` (ATB engine, battle builder, `SimpleAi`, `java.util.Random`-exact dice). Unit-tested. |
-| `rules/tests/looks.rs`, `rules/tests/look_checks/` | the look fixtures of `content/fixtures/look/` (grammar, id hash, tint and shade); test code only, never in the binary |
+| `rules/tests/looks.rs`, `rules/tests/look_checks/` | the look fixtures of `content/fixtures/look/` (grammar, id hash, tint and shade) and the pixel checks on their fixed cases; test code only, never in the binary |
+| `rules/examples/looks_sheet.rs` | the looks sheet and the focus render (`docs/VISUALS.md` §7); never in the binary |
 | `api/src/main.rs` | `Config` from env, pool + `sqlx::migrate!`, content load, router, minute-tick purge task |
 | `api/src/config.rs` | §8. Fails fast on empty `ESPER_RP_ORIGINS`. |
 | `api/src/auth/{passkeys,sessions}.rs` | webauthn-rs, ceremony store, the four ceremony routes; session issue / validate / slide / delete, bearer extractor |
@@ -88,6 +89,8 @@ bodies, no positions, ever.**
   (`runtime-tokio`, `tls-rustls`, `postgres`, `uuid`, `json`, `time`, `macros`,
   `migrate`), `webauthn-rs` (`conditional-ui`), `serde`, `serde_json`, `uuid`,
   `time`, `rand`, `sha2`, `base64`, `tracing`, `tracing-subscriber`.
+  Dev-dependency of `rules` only: `tiny-skia` (the looks sheet and its
+  checks), never linked into the server.
 - sqlx offline mode: `cargo sqlx prepare` output (`.sqlx/`) is committed so the
   image and CI build without a live database.
 
