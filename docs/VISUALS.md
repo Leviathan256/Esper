@@ -1653,10 +1653,9 @@ unit, the number each target needs, so the app stops computing them (§4.4).
 - Nothing was compiled for Android or run on a device. Every Kotlin signature
   here is a specification, not tested code, and the Gradle lines of §6 ran
   only on a plain `Test` task, outside the Android plugin. Compose and Android
-  API names (`CutCornerShape`, `CanvasDrawScope`, a device font family for
-  `sans-serif-condensed`, a colour-filter layer for the grey picture,
-  `statusBarsPadding`, `enableEdgeToEdge`, `Density(density, fontScale)`, the
-  Material icon names) are from memory of Compose 1.7.
+  API names (`CanvasDrawScope`, a colour-filter layer for the grey picture,
+  `statusBarsPadding`, `Density(density, fontScale)`, the Material icon names)
+  are from memory of Compose 1.7; step 4 compiled the theme's.
 - **osmdroid drawing tiles enlarged to zoom 22.** Read from the osmdroid 6.1.20
   source (tile zoom is the floor of the zoom; nothing is downloaded above the
   source's 19; lower-zoom tiles from the cache are enlarged, unsmoothed), not
