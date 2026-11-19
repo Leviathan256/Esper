@@ -78,7 +78,8 @@ cannot render is not in the design.
 - A new monster or job gets its look by adding data to its one JSON file, and is
   playable with no look at all.
 - A run with no emulator sees what it built: looks in seconds with `cargo`,
-  screens in minutes with a JVM screenshot test.
+  screens in minutes with a JVM screenshot test (deferred until step 0; see
+  Tier 2 of §7).
 - No binary art in the repo. The only PNGs are test outputs of fixed fixtures.
 
 **Non-goals**
@@ -1184,6 +1185,13 @@ re-implements the checks.
 
 ### Tier 2: screens, with Gradle on the runner (minutes)
 
+**Deferred until step 0** (Levi, 2026-11-19). This tier lands with #51,
+together with the workflow changes it needs. Until then screens are checked
+on Levi's phone in four rounds: after the camera, after the theme, after the
+mat and HUD, and after looks, replay and the map. His screenshots stay in the
+Claude session and are never committed, because most of them show the real
+map. Everything below is unchanged and is what #51 builds.
+
 Robolectric tests render stateless screen content with fixed state. One helper
 is the only way to take a picture, and it fails with neither property set,
 where Roborazzi alone would return without drawing and report success:
@@ -1558,7 +1566,9 @@ the cargo picture has four columns and no text.)
 
 ## 9. Rollout
 
-Small pull requests, in order. Each ships alone. Step 0 is workflow files and
+Small pull requests, in order. (Built in this order on one integration branch, `claude/field-mat`,
+with one merge commit per step so a step can be reverted alone. Step 3 is
+deferred until step 0: see Tier 2 of §7.) Each ships alone. Step 0 is workflow files and
 then a secret, so it is made by Levi or by a Claude session with his
 credentials (§7); once its acceptance has passed, every later step can be a
 dispatched run. Steps 1 and 2 do not depend on each other and may land in
