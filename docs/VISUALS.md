@@ -255,7 +255,8 @@ Material 3 slots: `headlineMedium` display 28/34, `titleLarge` display 22/28,
 (`material-icons-extended`), tinted `ink`: `ArrowBack`, `Person`,
 `AutoAwesome` and `Settings` in the top bar, as today; `LocationOn` or
 `LocationOff` on the map's status chip; `Check` on a chosen card;
-`CheckCircle`, `ErrorOutline` or `Schedule` on an Ask Claude run card. The
+`CheckCircle`, `ErrorOutline` or `Schedule` on an Ask Claude run card (built:
+`runIcon` in `ClaudeScreen.kt`). The
 mockups draw stand-ins for them. The app draws only the two marks of the
 Encounter header (§4.4) itself.
 
@@ -1654,8 +1655,9 @@ unit, the number each target needs, so the app stops computing them (§4.4).
   here is a specification, not tested code, and the Gradle lines of §6 ran
   only on a plain `Test` task, outside the Android plugin. Compose and Android
   API names (`CanvasDrawScope`, a colour-filter layer for the grey picture,
-  `statusBarsPadding`, `Density(density, fontScale)`, the Material icon names)
-  are from memory of Compose 1.7; step 4 compiled the theme's.
+  `statusBarsPadding`, `Density(density, fontScale)`, the icon names
+  `LocationOn`, `LocationOff` and `Check`) are from memory of Compose 1.7;
+  step 4 compiled the theme's, step 5 the run cards' icons.
 - **osmdroid drawing tiles enlarged to zoom 22.** Read from the osmdroid 6.1.20
   source (tile zoom is the floor of the zoom; nothing is downloaded above the
   source's 19; lower-zoom tiles from the cache are enlarged, unsmoothed), not

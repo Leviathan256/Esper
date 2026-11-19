@@ -159,7 +159,7 @@ fun SignInContent(
 
 /** A warning: a `foe`-outlined card with its sentence in `foe`. */
 @Composable
-private fun Warning(text: String) {
+internal fun Warning(text: String) {
     EsperCard(modifier = Modifier.fillMaxWidth(), outline = EsperColors.foe) {
         Text(text, style = MaterialTheme.typography.bodyMedium, color = EsperColors.foe)
     }
