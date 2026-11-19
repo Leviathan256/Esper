@@ -21,6 +21,7 @@ import com.esper.engine.encounter.BattleBuilder
 import com.esper.engine.encounter.Encounter
 import com.esper.engine.encounter.EncounterSeeder
 import com.esper.engine.encounter.GeodataSafetyChecker
+import com.esper.engine.encounter.HazardKind
 import com.esper.engine.encounter.OverpassHazards
 import com.esper.engine.geometry.GeoPoint
 import com.esper.engine.geometry.LocalTangentPlane
@@ -421,6 +422,9 @@ internal fun shouldSendFix(lastSent: GeoPoint?, lastSentAtMillis: Long, fix: Geo
     if (nowMillis - lastSentAtMillis >= 30_000L) return true
     return LocalTangentPlane(lastSent).distanceMetres(lastSent, fix) >= 50.0
 }
+
+internal fun noSafeSpotNotice(blockers: Set<HazardKind>): String =
+    "No safe spot nearby: try moving away from roads or water."
 
 /** Why no encounter was seeded when the hazard check failed. Every failure but a coverage gap fails closed. */
 internal fun hazardFailureNotice(error: Throwable): String =

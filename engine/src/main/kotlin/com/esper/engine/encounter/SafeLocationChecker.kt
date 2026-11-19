@@ -11,7 +11,13 @@ import kotlin.math.hypot
  */
 fun interface SafeLocationChecker {
     fun isSafe(point: GeoPoint): Boolean
+
+    fun isSafeIndoors(point: GeoPoint): Boolean = false
+
+    fun blockers(point: GeoPoint): Set<HazardKind> = emptySet()
 }
+
+enum class HazardKind { BUILDING, ROAD, RAILWAY, WATER, PRIVATE }
 
 /**
  * Something a player must never be sent onto, already buffered: each hazard owns

@@ -15,6 +15,16 @@ class EncounterSeeder(
     private val safety: SafeLocationChecker,
     private val maxAttempts: Int = 16,
 ) {
+    data class Outcome(val encounter: Encounter?, val blockers: Set<HazardKind>)
+
+    fun seed(
+        center: GeoPoint,
+        rng: RandomSource,
+        minRadiusMetres: Double = 6.0,
+        maxRadiusMetres: Double = 10.0,
+        leashRadiusMetres: Double = maxRadiusMetres,
+    ): Outcome = Outcome(seedNear(center, rng, minRadiusMetres, maxRadiusMetres), emptySet())
+
     /**
      * Random bearing + distance in `[minRadiusMetres, maxRadiusMetres]`.
      *
