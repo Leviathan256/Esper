@@ -7,29 +7,19 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -56,6 +45,8 @@ import com.esper.app.core.EventLog
 import com.esper.app.core.Settings
 import com.esper.app.game.GameSession
 import com.esper.app.ui.ClaudeScreen
+import com.esper.app.ui.LoadErrorContent
+import com.esper.app.ui.LoadingContent
 import com.esper.app.ui.MapScreen
 import com.esper.app.ui.PromptsScreen
 import com.esper.app.ui.SettingsScreen
@@ -144,25 +135,14 @@ private fun EsperApp() {
         GameSession.character != null ->
             EsperScaffold(navController = rememberNavController(), settings = settings)
         GameSession.needsCharacter -> CharacterCreatorScreen()
-        error != null && !GameSession.loading -> Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .safeDrawingPadding()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("Can't load your character", style = MaterialTheme.typography.titleLarge)
-            Text(error, style = MaterialTheme.typography.bodyMedium)
-            Button(onClick = { scope.launch { GameSession.loadCharacter(context) } }) { Text("Retry") }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { standalone = Routes.SETTINGS }) { Text("Settings") }
-                TextButton(onClick = { standalone = Routes.CLAUDE }) { Text("Updates & Ask Claude") }
-                TextButton(onClick = { scope.launch { GameSession.signOut() } }) { Text("Sign out") }
-            }
-        }
-        else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
+        error != null && !GameSession.loading -> LoadErrorContent(
+            error = error,
+            onRetry = { scope.launch { GameSession.loadCharacter(context) } },
+            onOpenSettings = { standalone = Routes.SETTINGS },
+            onOpenClaude = { standalone = Routes.CLAUDE },
+            onSignOut = { scope.launch { GameSession.signOut() } },
+        )
+        else -> LoadingContent()
     }
 }
 

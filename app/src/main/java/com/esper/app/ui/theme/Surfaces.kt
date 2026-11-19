@@ -171,7 +171,10 @@ fun EsperBar(fraction: Float, fill: Color, modifier: Modifier = Modifier, height
     }
 }
 
-/** A field: a [paperDim] well, cut 6, ink outline. */
+/**
+ * A field: a [paperDim] well, cut 6, ink outline. [accent] outlines it while focused ([EsperColors.esper]
+ * on Ask Claude); [minLines] over 1 makes it a multi-line field.
+ */
 @Composable
 fun EsperField(
     value: String,
@@ -179,18 +182,26 @@ fun EsperField(
     label: String,
     modifier: Modifier = Modifier,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    accent: Color = ink,
+    minLines: Int = 1,
+    placeholder: String? = null,
+    enabled: Boolean = true,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
-        singleLine = true,
+        placeholder = if (placeholder != null) { { Text(placeholder) } } else null,
+        singleLine = minLines == 1,
+        minLines = minLines,
+        enabled = enabled,
         visualTransformation = visualTransformation,
         shape = MaterialTheme.shapes.small,
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = paperDim,
             unfocusedContainerColor = paperDim,
-            focusedBorderColor = ink,
+            disabledContainerColor = paperDim,
+            focusedBorderColor = accent,
             unfocusedBorderColor = ink,
             focusedLabelColor = ink,
             unfocusedLabelColor = inkSoft,
