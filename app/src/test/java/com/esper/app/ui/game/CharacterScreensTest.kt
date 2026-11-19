@@ -20,9 +20,9 @@ class CharacterScreensTest {
             prerequisites = prerequisites, jobPointsToMaster = toMaster,
         )
 
-    private fun monster(id: String, name: String) = MonsterDefinition(
+    private fun monster(id: String, name: String, text: String = "") = MonsterDefinition(
         schemaVersion = 1, id = id, displayName = name, maxHp = 9, armorClass = 12, attackBonus = 3,
-        damage = "1d6+1", speed = 14, moveRangeCells = 5, xpReward = 10, jobPointsReward = 10,
+        damage = "1d6+1", speed = 14, moveRangeCells = 5, xpReward = 10, jobPointsReward = 10, bestiaryText = text,
     )
 
     private val guard = job("fx_guard", "Guard", "1d10", 12, "str", "1d8", 4)
@@ -30,7 +30,7 @@ class CharacterScreensTest {
     private val scout = job("fx_scout", "Scout", "1d8", 13, "dex", "1d6", 5)
     private val catalog = ContentCatalog(
         jobs = listOf(guard, warden, scout),
-        monsters = listOf(monster("fx_ring", "Ring"), monster("fx_arrow", "Arrow")),
+        monsters = listOf(monster("fx_ring", "Ring", "A test shape. It rolls at whatever is nearest."), monster("fx_arrow", "Arrow")),
     )
 
     /** Ash: a Guard at level 2, XP 180 / 300, job points Guard 100 / 100 and Warden 40 / 200, bestiary Ring ×5 and Arrow ×1. */
@@ -100,10 +100,13 @@ class CharacterScreensTest {
         assertTrue(wardenRow.joinedAbove)
     }
 
-    @Test fun `the bestiary lists each monster met with how many were defeated`() {
+    @Test fun `the bestiary lists each monster met with how many were defeated and its bestiary text`() {
         assertEquals(
-            listOf("Ring" to "defeated ×5", "Arrow" to "defeated ×1"),
-            characterSheetState(ash, guard, catalog).bestiary.map { it.name to it.defeated },
+            listOf(
+                Triple("Ring", "defeated ×5", "A test shape. It rolls at whatever is nearest."),
+                Triple("Arrow", "defeated ×1", ""),
+            ),
+            characterSheetState(ash, guard, catalog).bestiary.map { Triple(it.name, it.defeated, it.text) },
         )
     }
 }

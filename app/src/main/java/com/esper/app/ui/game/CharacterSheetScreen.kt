@@ -79,8 +79,8 @@ data class SheetJob(
     val joinedAbove: Boolean,
 )
 
-/** One bestiary card. */
-data class SheetMonster(val name: String, val defeated: String)
+/** One bestiary card. [text] is the monster's bestiary text, blank when it has none. */
+data class SheetMonster(val name: String, val defeated: String, val text: String = "")
 
 /** What the character sheet shows, every number already worked out. */
 data class CharacterSheetState(
@@ -139,7 +139,8 @@ fun characterSheetState(character: CharacterState, job: JobDefinition, catalog: 
             )
         },
         bestiary = character.bestiary.values.map {
-            SheetMonster(catalog.monster(it.monsterId)?.displayName ?: it.monsterId, "defeated ×${it.timesDefeated}")
+            val monster = catalog.monster(it.monsterId)
+            SheetMonster(monster?.displayName ?: it.monsterId, "defeated ×${it.timesDefeated}", monster?.bestiaryText.orEmpty())
         },
     )
 }
@@ -248,6 +249,10 @@ private fun MonsterCard(monster: SheetMonster, modifier: Modifier) {
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+        // shortcut: the bestiary text stays on the card so nothing player-facing is removed; #57 moves it into the bestiary entry.
+        if (monster.text.isNotBlank()) {
+            Text(monster.text, style = MaterialTheme.typography.bodySmall, color = EsperColors.inkSoft)
+        }
     }
 }
 
