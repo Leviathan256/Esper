@@ -21,6 +21,7 @@ import com.esper.engine.encounter.BattleBuilder
 import com.esper.engine.encounter.Encounter
 import com.esper.engine.encounter.EncounterSeeder
 import com.esper.engine.encounter.GeodataSafetyChecker
+import com.esper.engine.encounter.HazardKind
 import com.esper.engine.encounter.OverpassHazards
 import com.esper.engine.geometry.GeoPoint
 import com.esper.engine.geometry.LocalTangentPlane
@@ -343,8 +344,9 @@ object GameSession {
         if (battle != null) return
 
         val seeder = EncounterSeeder(catalog.monsters, GeodataSafetyChecker(hazards))
-        val seeded = seeder.seedNear(center, SystemRandom)
-        encounterNotice = if (seeded == null) "No safe spot nearby: try moving away from roads or water." else null
+        val outcome = seeder.seed(center, SystemRandom, leashRadiusMetres = radiusMetres)
+        val seeded = outcome.encounter
+        encounterNotice = if (seeded == null) noSafeSpotNotice(outcome.blockers) else null
         // Keep the old encounter if seeding failed rather than dropping to null.
         encounter = seeded ?: existing
     }
@@ -420,6 +422,22 @@ internal fun shouldSendFix(lastSent: GeoPoint?, lastSentAtMillis: Long, fix: Geo
     if (lastSent == null) return true
     if (nowMillis - lastSentAtMillis >= 30_000L) return true
     return LocalTangentPlane(lastSent).distanceMetres(lastSent, fix) >= 50.0
+}
+
+/** Names what kept every nearby spot unsafe (issue #61), instead of always blaming roads or water. */
+internal fun noSafeSpotNotice(blockers: Set<HazardKind>): String {
+    val names = HazardKind.entries.filter { it in blockers }.map {
+        when (it) {
+            HazardKind.BUILDING -> "buildings"
+            HazardKind.ROAD -> "roads"
+            HazardKind.RAILWAY -> "railways"
+            HazardKind.WATER -> "water"
+            HazardKind.PRIVATE -> "private land"
+        }
+    }
+    if (names.isEmpty()) return "No safe spot nearby."
+    val list = if (names.size == 1) names.single() else names.dropLast(1).joinToString(", ") + " and " + names.last()
+    return "No safe spot nearby: blocked by $list."
 }
 
 /** Why no encounter was seeded when the hazard check failed. Every failure but a coverage gap fails closed. */
