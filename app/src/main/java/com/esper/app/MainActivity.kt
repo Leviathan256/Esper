@@ -2,15 +2,20 @@ package com.esper.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -36,6 +41,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -55,6 +63,9 @@ import com.esper.app.ui.SignInScreen
 import com.esper.app.ui.game.CharacterCreatorScreen
 import com.esper.app.ui.game.CharacterSheetScreen
 import com.esper.app.ui.game.CombatScreen
+import com.esper.app.ui.theme.EsperColors
+import com.esper.app.ui.theme.EsperTheme
+import com.esper.app.ui.theme.Spec
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 
@@ -74,7 +85,10 @@ class MainActivity : ComponentActivity() {
             getSharedPreferences("osmdroid", MODE_PRIVATE),
         )
 
-        setContent { EsperApp() }
+        // Drawn edge to edge on every version, dark icons on paper (docs/VISUALS.md §4.4).
+        val bars = SystemBarStyle.light(EsperColors.paper.toArgb(), EsperColors.ink.toArgb())
+        enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+        setContent { EsperTheme { EsperApp() } }
     }
 }
 
@@ -133,6 +147,7 @@ private fun EsperApp() {
         error != null && !GameSession.loading -> Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -151,7 +166,7 @@ private fun EsperApp() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun EsperScaffold(navController: NavHostController, settings: Settings) {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -208,13 +223,21 @@ private fun EsperScaffold(navController: NavHostController, settings: Settings) 
                         }
                     }
                 },
+                // §4.6: a 1.5 dp ink line below the top bar.
+                modifier = Modifier.drawWithContent {
+                    drawContent()
+                    val stroke = Spec.OUTLINE_DP.dp.toPx()
+                    val y = size.height - stroke / 2
+                    drawLine(EsperColors.ink, Offset(0f, y), Offset(size.width, y), stroke)
+                },
             )
         },
     ) { padding ->
         NavHost(
             navController = navController,
             startDestination = Routes.MAP,
-            modifier = Modifier.padding(padding),
+            // Consumed, so a screen's own safeDrawingPadding() does not pad twice inside the scaffold.
+            modifier = Modifier.padding(padding).consumeWindowInsets(padding),
         ) {
             composable(Routes.MAP) {
                 MapScreen(

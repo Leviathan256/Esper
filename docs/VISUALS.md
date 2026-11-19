@@ -170,9 +170,8 @@ mixed 35% toward `ink`; `accent(hue)` = `ember`, or `bone` when the hue is
 integers, the division rounding down: `tint = (hue * 30 + paper * 70 + 50) /
 100`, `shade = (hue * 65 + ink * 35 + 50) / 100`. An exact half therefore
 rounds up (`bone` has two). `tint(moss)` is `#D5DCBB`, `shade(moss)`
-`#586C31`, `tint(violet)` `#D5C8E2`; all sixteen are in §6. Write the
-arithmetic; Compose's `lerp(Color, Color, Float)` mixes in Oklab and gives
-other colours. Plate colour is decoration and never carries meaning: the
+`#586C31`, `tint(violet)` `#D5C8E2`; all sixteen are in `mix.tsv` (built:
+`EsperColors.kt`). Plate colour is decoration and never carries meaning: the
 `ember` accent is 1.02:1 on `moss` and under 1.3:1 on `jade`, `slate` and
 `steel`, so there it shows by hue alone, and `tint(bone)` is 1.12:1 on
 `paper`, so that cell is held by the plate's `ink` frame.
@@ -261,14 +260,8 @@ mockups draw stand-ins for them. The app draws only the two marks of the
 Encounter header (§4.4) itself.
 
 **Material 3 scheme** (for anything not yet using the Esper components):
-`primary` `ink`, `onPrimary` `paper`, `secondary` `ally`, `tertiary` `esper`,
-`error` `foe`, `on*` of those `paper`; `background`, `surface` and every
-`surfaceContainer*` `paper`; `surfaceVariant` `paperDim`; `onBackground` and
-`onSurface` `ink`; `onSurfaceVariant` `inkSoft`; `outline` `ink`;
-`outlineVariant` `line`; `surfaceTint` `paper`; `primaryContainer`,
-`secondaryContainer`, `tertiaryContainer`, `errorContainer` and `surfaceDim`
-`paperDim`, the `on*` of those containers `ink`; `inverseSurface` and `scrim`
-`ink`; `inverseOnSurface`, `inversePrimary` and `surfaceBright` `paper`.
+`primary` `ink`, `secondary` `ally`, `tertiary` `esper`, `error` `foe`, every
+surface `paper`, every container `paperDim` (built: `EsperTheme.kt`).
 
 ### 4.2 The map
 
@@ -745,10 +738,10 @@ Themed only: the components above, one gold button each (`Save`,
 `Copy all prompts`, `Retry`). The loading spinner is the system indicator in
 `ink`, the only thing in the app that loops.
 
-**Launcher icon.** An adaptive icon as VectorDrawable XML: `paper` background;
-foreground on the 108 dp canvas, `ink`, `fillType="evenOdd"`,
-`pathData="M79.98,69 L79.98,39 L54,24 L28.02,39 L28.02,69 L54,84 Z M54,36 L58,50 L72,54 L58,58 L54,72 L50,58 L36,54 L50,50 Z"`.
-`themes.xml` sets the window background to `paper`.
+**Launcher icon.** An adaptive icon as VectorDrawable XML: the `ink` mark on a
+`paper` background, inside the 66 dp safe circle (built:
+`res/drawable/ic_launcher_foreground.xml`, and `ic_esper_mark.xml` for
+sign-in). `themes.xml` sets the window background to `paper`.
 
 ### 4.7 Motion
 
@@ -1632,8 +1625,7 @@ Each lands with the pull request that makes it true.
 - *Visuals*: added with this document. Step 10 deletes its sentences on which
   step a rule binds from.
 
-**`app/src/main/AndroidManifest.xml`**: `android:icon="@mipmap/ic_launcher"`
-on `<application>` (step 4); `android:screenOrientation="portrait"` on
+**`app/src/main/AndroidManifest.xml`**: `android:screenOrientation="portrait"` on
 `MainActivity` (step 6).
 
 **`GLOSSARY.md`**: the terms Look, Glyph, Token, Frame, Plate, Mat, Fight view

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Esper" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Esper" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Paper behind the first frame and under the system bars (docs/VISUALS.md §4.6). -->
+        <item name="android:windowBackground">@color/paper</item>
+    </style>
 </resources>
-

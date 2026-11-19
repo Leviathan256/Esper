@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's and the window's two colours: ink and paper of EsperColors.kt (docs/VISUALS.md §4.1), repeated here
+     because resources cannot read Kotlin. The one place outside EsperColors.kt a colour is written. -->
+<resources>
+    <color name="ink">#14171C</color>
+    <color name="paper">#FBF8F1</color>
+</resources>
