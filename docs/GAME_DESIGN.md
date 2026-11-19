@@ -163,7 +163,24 @@ one **coverage region**, refreshed daily. `GeodataSafetyChecker` rejects any
 candidate inside or too close to a hazard: roads and railways by carriageway
 half-width (or the `width` tag) plus 3 m, water by 2 m, buildings and private
 land by 1 m; footpaths, tunnels and `access=no` + `foot=yes` paths are not
-hazards. The tag policy lives in `OverpassHazards`. It **fails closed**: no
+hazards. The tag policy lives in `OverpassHazards`. `EncounterSeeder` tries,
+in order: random spots 6 to 10 m from the leash centre; then outdoor rings 2 m
+wider at a time, out to the leash radius; and only then spots **just inside a
+building** (issue #61), so a player deep inside a large building still gets an
+Encounter. An indoor anchor sits at most 3 m inside the outline, clear of every
+non-building hazard, and the point 0.5 m outside the nearest wall must be
+outside every building and pass the road, railway, water and private-land
+checks, so a wall facing a road is refused. Homes never qualify (`building=`
+house, detached, semidetached_house, terrace, apartments, residential,
+bungalow, cabin, dormitory, farm, houseboat, static_caravan or hut), nor any
+building tagged `access=private` or `access=no`; a plain `building=yes` does.
+Indoor spots are searched out to 24 m, past the leash, because the map card
+enters from anywhere and the 40 m hazard query still covers what lies beyond
+that wall. When nothing passes, the notice names what blocked the outdoor
+spots, e.g. "No safe spot nearby: blocked by buildings and roads." ADR-0002
+freezes the Kotlin engine, but this ships there as a bug fix to an existing
+rule, since the server does not seed; it moves to Rust with server combat.
+It **fails closed**: no
 geodata (offline, server or map error, timeout) means no new encounter, never a
 blind one. **Encounters only spawn inside the coverage region**, at least 100 m
 in from its edge: anywhere else the game says "Encounters aren't available in

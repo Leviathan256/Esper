@@ -105,31 +105,42 @@ object OverpassHazards {
         val waterway = tags["waterway"]
         val explicitHalfWidth = tags["width"]?.removeSuffix(" m")?.toDoubleOrNull()?.div(2.0)
 
-        fun corridor(halfWidth: Double, clearance: Double) =
-            Hazard.Corridor(paths.first(), (explicitHalfWidth ?: halfWidth) + clearance)
+        fun corridor(halfWidth: Double, clearance: Double, kind: HazardKind) =
+            Hazard.Corridor(paths.first(), (explicitHalfWidth ?: halfWidth) + clearance, kind)
 
-        fun area(clearance: Double) = Hazard.Area(paths, clearance)
+        fun area(clearance: Double, kind: HazardKind) = Hazard.Area(paths, clearance, kind)
 
         // `access=no` + `foot=yes` is the usual tagging for a public footpath.
         val privateAccess = tags["access"] in setOf("private", "no") &&
             tags["foot"] !in setOf("yes", "designated", "permissive")
         return when {
             highway != null && highway !in FOOT_HIGHWAYS && highway !in NOT_A_ROAD ->
-                corridor(ROAD_HALF_WIDTHS[highway] ?: DEFAULT_ROAD_HALF_WIDTH, TRAFFIC_CLEARANCE_METRES)
-            railway in ACTIVE_RAILWAYS -> corridor(RAIL_HALF_WIDTH, TRAFFIC_CLEARANCE_METRES)
+                corridor(ROAD_HALF_WIDTHS[highway] ?: DEFAULT_ROAD_HALF_WIDTH, TRAFFIC_CLEARANCE_METRES, HazardKind.ROAD)
+            railway in ACTIVE_RAILWAYS -> corridor(RAIL_HALF_WIDTH, TRAFFIC_CLEARANCE_METRES, HazardKind.RAILWAY)
             tags["natural"] == "coastline" -> Hazard.Coastline(paths.first(), WATER_CLEARANCE_METRES)
             waterway == "riverbank" || tags["natural"] in setOf("water", "wetland") ||
-                tags["landuse"] in setOf("reservoir", "basin") -> area(WATER_CLEARANCE_METRES)
+                tags["landuse"] in setOf("reservoir", "basin") -> area(WATER_CLEARANCE_METRES, HazardKind.WATER)
             waterway != null && waterway in WATERWAY_HALF_WIDTHS ->
-                corridor(WATERWAY_HALF_WIDTHS.getValue(waterway), WATER_CLEARANCE_METRES)
-            tags["building"].let { it != null && it != "no" } -> area(PROPERTY_CLEARANCE_METRES)
-            tags["landuse"] in setOf("military", "railway") -> area(PROPERTY_CLEARANCE_METRES)
+                corridor(WATERWAY_HALF_WIDTHS.getValue(waterway), WATER_CLEARANCE_METRES, HazardKind.WATER)
+            tags["building"].let { it != null && it != "no" } -> Hazard.Area(
+                paths, PROPERTY_CLEARANCE_METRES, HazardKind.BUILDING,
+                // Issue #61: no Encounter is ever placed inside someone's home or a private building.
+                enterable = tags["building"] !in HOMES && tags["access"] !in setOf("private", "no"),
+            )
+            tags["landuse"] == "railway" -> area(PROPERTY_CLEARANCE_METRES, HazardKind.RAILWAY)
+            tags["landuse"] == "military" -> area(PROPERTY_CLEARANCE_METRES, HazardKind.PRIVATE)
             // A private footpath is still somewhere the player may not go.
-            privateAccess && highway != null -> corridor(1.0, PROPERTY_CLEARANCE_METRES)
-            privateAccess && isArea -> area(PROPERTY_CLEARANCE_METRES)
+            privateAccess && highway != null -> corridor(1.0, PROPERTY_CLEARANCE_METRES, HazardKind.PRIVATE)
+            privateAccess && isArea -> area(PROPERTY_CLEARANCE_METRES, HazardKind.PRIVATE)
             else -> null
         }
     }
+
+    /** `building=*` values for homes, which never hold an Encounter indoors. */
+    val HOMES: Set<String> = setOf(
+        "house", "detached", "semidetached_house", "terrace", "apartments", "residential", "bungalow", "cabin",
+        "dormitory", "farm", "houseboat", "static_caravan", "hut",
+    )
 
     private val FOOT_HIGHWAYS = setOf(
         "footway", "path", "pedestrian", "cycleway", "steps", "bridleway", "corridor", "elevator", "platform",
