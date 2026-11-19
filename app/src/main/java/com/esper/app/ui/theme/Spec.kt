@@ -83,6 +83,12 @@ object Spec {
     /** A stat tile is at least this tall. */
     const val TILE_MIN_DP = 46f
 
-    /** The XP bar; a job-point bar is 10. */
+    /** The XP bar. */
     const val BAR_DP = 12f
+
+    /** A job-point bar. */
+    const val JOB_BAR_DP = 10f
+
+    /** The line joining a job to its first prerequisite on the sheet. */
+    const val JOB_LINE_DP = 2f
 }
