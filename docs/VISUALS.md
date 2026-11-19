@@ -640,15 +640,8 @@ shadow and no hatch.
 **The six starting looks** are in their content files. Knight starts with a
 hue alone and draws its monogram; its glyph is the first one drawn by §8.
 
-Checked with the pinned rasteriser (tiny-skia 0.12.0, the checks of §7):
-
-| Unit | Segments | Subpaths | Coverage at 16 px | Survives erosion | Nearest other look |
-|---|---|---|---|---|---|
-| goblin | 14 | 3 | 33.6% | 39.5% | slime 64% |
-| slime | 15 | 3 | 40.6% | 46.2% | goblin 64% |
-| wolf | 18 | 3 | 35.9% | 37.0% | goblin 57% |
-| apprentice | 10 | 2 | 35.2% | 47.8% | slime 63% |
-| squire | 16 | 1 | 35.2% | 53.3% | apprentice 61% |
+Their numbers (segments, subpaths, coverage at 16 px, survival of the
+erosion, nearest other looks) are what the looks sheet prints (§7).
 
 ### 4.6 Screens
 
@@ -1687,9 +1680,6 @@ unit, the number each target needs, so the app stops computing them (§4.4).
   seen: step 0's acceptance is the first time.
 - That CI waits for approval on a pull request a dispatched run opens is from
   GitHub's documentation, which says the behaviour is still rolling out.
-- The looks checks ran here as a throwaway crate, not inside `server/rules`;
-  §4.5's table is its output. Whether the image build downloads the
-  dev-dependency was not checked; it is not compiled into the binary.
 - The colour-vision rows of the identity sheet are a picture, simulated with
   matrices quoted from memory. Nothing in the build uses them.
 - Real sunlight, real device fonts, haptics, and how 5.4 mm cells feel under a
