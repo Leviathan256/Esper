@@ -78,7 +78,8 @@ cannot render is not in the design.
 - A new monster or job gets its look by adding data to its one JSON file, and is
   playable with no look at all.
 - A run with no emulator sees what it built: looks in seconds with `cargo`,
-  screens in minutes with a JVM screenshot test.
+  screens in minutes with a JVM screenshot test (deferred until step 0; see
+  Tier 2 of §7).
 - No binary art in the repo. The only PNGs are test outputs of fixed fixtures.
 
 **Non-goals**
@@ -169,9 +170,8 @@ mixed 35% toward `ink`; `accent(hue)` = `ember`, or `bone` when the hue is
 integers, the division rounding down: `tint = (hue * 30 + paper * 70 + 50) /
 100`, `shade = (hue * 65 + ink * 35 + 50) / 100`. An exact half therefore
 rounds up (`bone` has two). `tint(moss)` is `#D5DCBB`, `shade(moss)`
-`#586C31`, `tint(violet)` `#D5C8E2`; all sixteen are in §6. Write the
-arithmetic; Compose's `lerp(Color, Color, Float)` mixes in Oklab and gives
-other colours. Plate colour is decoration and never carries meaning: the
+`#586C31`, `tint(violet)` `#D5C8E2`; all sixteen are in `mix.tsv` (built:
+`EsperColors.kt`). Plate colour is decoration and never carries meaning: the
 `ember` accent is 1.02:1 on `moss` and under 1.3:1 on `jade`, `slate` and
 `steel`, so there it shows by hue alone, and `tint(bone)` is 1.12:1 on
 `paper`, so that cell is held by the plate's `ink` frame.
@@ -255,19 +255,14 @@ Material 3 slots: `headlineMedium` display 28/34, `titleLarge` display 22/28,
 (`material-icons-extended`), tinted `ink`: `ArrowBack`, `Person`,
 `AutoAwesome` and `Settings` in the top bar, as today; `LocationOn` or
 `LocationOff` on the map's status chip; `Check` on a chosen card;
-`CheckCircle`, `ErrorOutline` or `Schedule` on an Ask Claude run card. The
+`CheckCircle`, `ErrorOutline` or `Schedule` on an Ask Claude run card (built:
+`runIcon` in `ClaudeScreen.kt`). The
 mockups draw stand-ins for them. The app draws only the two marks of the
 Encounter header (§4.4) itself.
 
 **Material 3 scheme** (for anything not yet using the Esper components):
-`primary` `ink`, `onPrimary` `paper`, `secondary` `ally`, `tertiary` `esper`,
-`error` `foe`, `on*` of those `paper`; `background`, `surface` and every
-`surfaceContainer*` `paper`; `surfaceVariant` `paperDim`; `onBackground` and
-`onSurface` `ink`; `onSurfaceVariant` `inkSoft`; `outline` `ink`;
-`outlineVariant` `line`; `surfaceTint` `paper`; `primaryContainer`,
-`secondaryContainer`, `tertiaryContainer`, `errorContainer` and `surfaceDim`
-`paperDim`, the `on*` of those containers `ink`; `inverseSurface` and `scrim`
-`ink`; `inverseOnSurface`, `inversePrimary` and `surfaceBright` `paper`.
+`primary` `ink`, `secondary` `ally`, `tertiary` `esper`, `error` `foe`, every
+surface `paper`, every container `paperDim` (built: `EsperTheme.kt`).
 
 ### 4.2 The map
 
@@ -275,10 +270,8 @@ The map is the mat, so it is quietened, never hidden.
 
 **Today, on raster tiles.** Five settings, the first four on both `MapView`s:
 
-1. `setTilesScaledToDpi(true)`. One tile pixel becomes one dp, so tile labels
-   are readable and camera numbers are dp. osmdroid keeps the tile size in a
-   static (`TileSystem.setTileSize`), so **both map screens must set it**; one
-   without it changes the other's scale.
+1. Tiles scaled to the density (built: both `MapView`s). One tile pixel
+   becomes one dp, so tile labels are readable and camera numbers are dp.
 2. `overlayManager.tilesOverlay.setColorFilter(ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(0.6f) }))`.
    Roads and labels calm down, water stays blue, grass stays green.
 3. `tilesOverlay.loadingBackgroundColor` and `loadingLineColor` set to `paper`,
@@ -286,10 +279,9 @@ The map is the mat, so it is quietened, never hidden.
 4. In an Encounter: `paper` at 50% inside the leash ring, `ink` at 13% outside
    it. Past zoom 19 the tiles are enlarged about 20 times without smoothing:
    blocks about 8 dp across, no blur; the wash makes it "paper over the map".
-5. On both maps,
-   `zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)`.
-   osmdroid shows its stock plus and minus buttons on a touch unless told not
-   to, and they get in the way of play. In an Encounter the pinch and the
+5. No stock zoom buttons on either map (built). osmdroid shows its plus and
+   minus buttons on a touch unless told not to, and they get in the way of
+   play. In an Encounter the pinch and the
    Whole board button do their work; the walking map is zoomed by pinch alone
    until it has side buttons of its own (#43).
 
@@ -319,10 +311,8 @@ an Encounter, so "Why the app asks for location" needs a sentence first.
 
 Camera rules are in **dp per metre**, not zoom levels: pixels per metre at a
 zoom level change with latitude. With tiles scaled to the density,
-
-```
-zoom = log2(dpPerMetre * 40075016.686 * cos(latitude) / 256)
-```
+`CameraMath.zoomFor` turns a scale into a zoom from the latitude
+(`app/.../ui/game/CameraMath.kt`), and `Spec.kt` holds the numbers below.
 
 | View | dp per metre | A 1 m cell is | Zoom at 0° / 40° / 60° | For |
 |---|---|---|---|---|
@@ -612,65 +602,8 @@ token's centre. Strokes are centred on the frame path.
 **The look, as data.** Optional on jobs and monsters. `schemaVersion` stays 1:
 both validators reject any other value, the Kotlin one is frozen, and an
 optional field the app's loader ignores needs no new version.
-Rollout step 1 moves the field table, the path grammar and the resolving rules
-below into `content/schema/look.schema.md` and leaves a link here, so they
-have one home.
-
-```json
-"look": {
-  "glyph": "M12 6 C14.6 6 16.6 7.6 17.2 10 L23.5 5 L20 14.5 C19.2 18 15.6 21 12 21.5 C8.4 21 4.8 18 4 14.5 L0.5 5 L6.8 10 C7.4 7.6 9.4 6 12 6 Z M7 11.4 L10.8 13 L10.2 15.2 L7.6 14.4 Z M17 11.4 L16.4 14.4 L13.8 15.2 L13.2 13 Z",
-  "hue": "moss",
-  "details": [
-    { "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" },
-    { "tone": "shade", "d": "M0 0 L7 0 L7 14 L0 14 Z" }
-  ]
-}
-```
-
-| Field | Type | Rule |
-|---|---|---|
-| `glyph` | path string | The stamp, drawn at every size. Even-odd. At most 40 segments and 6 subpaths. Every point outside the four cut corners (below). |
-| `hue` | one of the 8 hue names | The plate's colour. |
-| `details` | list of `{ "tone", "d" }`, at most 6 | Plate only. `tone` is `hue`, `shade`, `paper`, `ink` or `accent`. `d` is a path of at most 16 segments and 6 subpaths, anywhere in the box, filled even-odd. |
-
-All three are optional and `"look": {}` is valid. Unknown keys inside `look`
-are an error in Rust and ignored by the app. The server enforces this table
-and the grammar and nothing else (§6). Every rule here is decided from the
-one file; the one check that needs a second file, alike, runs on pull requests
-only (§7).
-
-**Path grammar.** One grammar for `glyph` and `d`, small enough that the Rust
-and Kotlin parsers cannot disagree:
-
-```
-path    = subpath { " " subpath }
-subpath = "M" point { " " segment } " Z"
-segment = "L" point | "C" point " " point " " point
-point   = number " " number
-number  = 1 or 2 digits, optionally "." and 1 or 2 digits, value 0 to 24
-```
-
-- Absolute `M`, `L`, `C` and `Z` only, the letter glued to its first number,
-  single spaces, no commas, no signs, no exponents, no implicit repeats.
-- The box is 24 x 24 units, x right, y down.
-- A segment is one `L` or `C`. `M` and `Z` do not count.
-- **Cut corners** (`glyph` only): for every number pair, control points
-  included, `x + y >= 4`, `(24 - x) + y >= 4`, `x + (24 - y) >= 4` and
-  `(24 - x) + (24 - y) >= 4`. A curve stays inside its control points, so this
-  keeps the whole glyph inside an octagon that fits every frame with room for
-  the outline.
-
-**Resolving a look.** A unit resolves from its own file alone. A look never
-refers to another unit's file, and a job takes nothing from its
-prerequisite's look: on the board the glyph is the only thing that says which
-unit it is, so a shared glyph would make two units identical in a fight, and
-a reference would let an edit to one file silently change another.
-
-1. `glyph`: `look.glyph`. A unit with none draws its monogram.
-2. `hue`: `look.hue`; else `HUES[fnv1a32(id) % 8]`, with `HUES` in the order
-   listed in §4.1 and FNV-1a over the id's UTF-8 bytes (offset `0x811C9DC5`,
-   prime `0x01000193`). The hash is an unsigned 32-bit number.
-3. `details`: `look.details`. Tone `hue` is the unit's resolved hue.
+The field table, the path grammar and the resolving rules are in
+[`content/schema/look.schema.md`](../content/schema/look.schema.md).
 
 **No look yet.** The unit still draws and plays. Token: its monogram, the first
 letter or digit of `displayName` in upper case (`?` when it has none), HUD,
@@ -699,50 +632,11 @@ struck again on top, a detail never has to follow the glyph's edge: a full-box
 rectangle in tone `hue` colours the whole creature. Plates have no ground
 shadow and no hatch.
 
-**The six starting looks**, exactly as rollout step 1 puts them into the
-content files. Knight starts with a hue alone and draws its monogram; its
-glyph is the first one drawn by §8:
+**The six starting looks** are in their content files. Knight starts with a
+hue alone and draws its monogram; its glyph is the first one drawn by §8.
 
-```json
-{
-  "goblin":     { "glyph": "M12 6 C14.6 6 16.6 7.6 17.2 10 L23.5 5 L20 14.5 C19.2 18 15.6 21 12 21.5 C8.4 21 4.8 18 4 14.5 L0.5 5 L6.8 10 C7.4 7.6 9.4 6 12 6 Z M7 11.4 L10.8 13 L10.2 15.2 L7.6 14.4 Z M17 11.4 L16.4 14.4 L13.8 15.2 L13.2 13 Z",
-                  "hue": "moss",
-                  "details": [ { "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" },
-                               { "tone": "shade", "d": "M0 0 L7 0 L7 14 L0 14 Z" },
-                               { "tone": "shade", "d": "M17 0 L24 0 L24 14 L17 14 Z" } ] },
-  "slime":      { "glyph": "M12 5.5 C17 5.5 21 9.5 21.5 15 C22.6 16 23 17.4 23 18.6 C23 20.6 21 21.5 18.5 21.5 L5.5 21.5 C3 21.5 1 20.6 1 18.6 C1 17.4 1.4 16 2.5 15 C3 9.5 7 5.5 12 5.5 Z M9 12 C10 12 10.6 13.2 10.6 14.4 C10.6 15.6 10 16.8 9 16.8 C8 16.8 7.4 15.6 7.4 14.4 C7.4 13.2 8 12 9 12 Z M15 12 C16 12 16.6 13.2 16.6 14.4 C16.6 15.6 16 16.8 15 16.8 C14 16.8 13.4 15.6 13.4 14.4 C13.4 13.2 14 12 15 12 Z",
-                  "hue": "jade",
-                  "details": [ { "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" },
-                               { "tone": "shade", "d": "M0 18.4 C6 20.4 18 20.4 24 18.4 L24 24 L0 24 Z" },
-                               { "tone": "paper", "d": "M9.4 7.6 C7.4 9 5.8 11 5.2 13.6 C6.6 11.6 8.4 10 10.4 9 Z" } ] },
-  "wolf":       { "glyph": "M3.5 1 L9.4 7.4 C11.2 6.8 12.8 6.8 14.6 7.4 L20.5 1 L21.5 10.5 L19 15 L15 17.5 L14 21.5 L12 23 L10 21.5 L9 17.5 L5 15 L2.5 10.5 Z M5.8 10.4 L10.4 12.2 L9.4 14.4 L6.4 13.4 Z M18.2 10.4 L17.6 13.4 L14.6 14.4 L13.6 12.2 Z",
-                  "hue": "slate",
-                  "details": [ { "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" },
-                               { "tone": "paper", "d": "M12 15 C13.6 15.8 14.6 17 14.8 18.6 L14 24 L10 24 L9.2 18.6 C9.4 17 10.4 15.8 12 15 Z" },
-                               { "tone": "ink", "d": "M10.6 20.4 L13.4 20.4 L12 22.4 Z" } ] },
-  "apprentice": { "glyph": "M13.5 1.5 L17.6 13.6 C20.8 14.2 23 15.6 23 17.4 C23 20 18 21.8 12 21.8 C6 21.8 1 20 1 17.4 C1 15.6 3.2 14.2 6.4 13.6 L10 5.5 C10.8 3.6 12 2.2 13.5 1.5 Z M7.4 11.4 C10 12.8 14 12.8 16.8 11.4 L17.6 13.8 C14.4 15.4 9.8 15.4 6.4 13.8 Z",
-                  "hue": "violet",
-                  "details": [ { "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" },
-                               { "tone": "shade", "d": "M0 18.6 C6 20.6 18 20.6 24 18.6 L24 24 L0 24 Z" },
-                               { "tone": "paper", "d": "M12.6 5 L13.4 7.2 L15.6 8 L13.4 8.8 L12.6 11 L11.8 8.8 L9.6 8 L11.8 7.2 Z" } ] },
-  "squire":     { "glyph": "M12 1 L15.6 4.8 L15.6 13.6 L20.5 13.6 L20.5 17.6 L14.4 17.6 L14.4 20.4 L15.8 20.4 L15.8 23 L8.2 23 L8.2 20.4 L9.6 20.4 L9.6 17.6 L3.5 17.6 L3.5 13.6 L8.4 13.6 L8.4 4.8 Z",
-                  "hue": "steel",
-                  "details": [ { "tone": "hue", "d": "M0 0 L24 0 L24 13.6 L0 13.6 Z" },
-                               { "tone": "paper", "d": "M0 0 L11.4 0 L11.4 13.6 L0 13.6 Z" },
-                               { "tone": "accent", "d": "M0 13.6 L24 13.6 L24 17.6 L0 17.6 Z" } ] },
-  "knight":     { "hue": "crimson" }
-}
-```
-
-Checked with the pinned rasteriser (tiny-skia 0.12.0, the checks of §7):
-
-| Unit | Segments | Subpaths | Coverage at 16 px | Survives erosion | Nearest other look |
-|---|---|---|---|---|---|
-| goblin | 14 | 3 | 33.6% | 39.5% | slime 64% |
-| slime | 15 | 3 | 40.6% | 46.2% | goblin 64% |
-| wolf | 18 | 3 | 35.9% | 37.0% | goblin 57% |
-| apprentice | 10 | 2 | 35.2% | 47.8% | slime 63% |
-| squire | 16 | 1 | 35.2% | 53.3% | apprentice 61% |
+Their numbers (segments, subpaths, coverage at 16 px, survival of the
+erosion, nearest other looks) are what the looks sheet prints (§7).
 
 ### 4.6 Screens
 
@@ -845,10 +739,10 @@ Themed only: the components above, one gold button each (`Save`,
 `Copy all prompts`, `Retry`). The loading spinner is the system indicator in
 `ink`, the only thing in the app that loops.
 
-**Launcher icon.** An adaptive icon as VectorDrawable XML: `paper` background;
-foreground on the 108 dp canvas, `ink`, `fillType="evenOdd"`,
-`pathData="M79.98,69 L79.98,39 L54,24 L28.02,39 L28.02,69 L54,84 Z M54,36 L58,50 L72,54 L58,58 L54,72 L50,58 L36,54 L50,50 Z"`.
-`themes.xml` sets the window background to `paper`.
+**Launcher icon.** An adaptive icon as VectorDrawable XML: the `ink` mark on a
+`paper` background, inside the 66 dp safe circle (built:
+`res/drawable/ic_launcher_foreground.xml`, and `ic_esper_mark.xml` for
+sign-in). `themes.xml` sets the window background to `paper`.
 
 ### 4.7 Motion
 
@@ -1044,31 +938,8 @@ context preview is open; its `map zoom:` line holds a zoom and no position.
 | Reference pictures of fixture screens | PNG written by tests | `app/src/test/snapshots/` |
 | Launcher icon | VectorDrawable XML | `app/src/main/res/drawable/ic_launcher_foreground.xml`, `mipmap-anydpi-v26/ic_launcher.xml` |
 
-The three fixture files are tab-separated UTF-8 with one header row, and Rust
-and Kotlin read the same bytes:
-
-| File | Columns |
-|---|---|
-| `grammar.tsv` | `path`, `cutCorners` (`true` or `false`), `accept` (`true` or `false`), `segments`, `subpaths` (both empty on a rejected path) |
-| `hue.tsv` | `id`, `hash` (the 32-bit FNV-1a value, decimal), `hue` |
-| `mix.tsv` | `fn` (`tint` or `shade`), `hue`, `hex`: sixteen rows |
-
-`mix.tsv` holds, in hue order (moss, jade, slate, steel, violet, crimson,
-ember, bone): tint `#D5DCBB` `#C2E2D5` `#D2D4D4` `#DCDEDE` `#D5C8E2` `#E6BDBB`
-`#F1D2B6` `#F1EBDE`; shade `#586C31` `#2F7969` `#525B67` `#67717E` `#574186`
-`#7D2931` `#945627` `#938D7E`.
-
-`hue.tsv` holds the hue an id hashes to, whatever look a unit of that id
-gives. Its rows include `fx_scout` 2097771318 `ember`, `fx_nolook` 615219792
-`moss` and `fx_archer` 4192892939 `steel`: at least one hash is 2^31 or more,
-where a signed 32-bit `%` goes negative.
-
-`grammar.tsv` holds the three fixture glyphs of §5 as accepted rows (11, 8 and
-3 segments); one point inside a cut corner, `M1 1 L23 1 L23 23 L1 23 Z`,
-rejected with `cutCorners` true and accepted with it false; and one rejected
-row for each thing the grammar leaves out: an exponent (`1e1`), a sign (`-5`),
-three digits (`012`), a value over 24 (`24.01`), a number ending in a dot
-(`5.`), a comma, a small letter (`l`), two spaces, a missing `Z`, and a `Q`.
+The three fixture files' formats are in
+[`content/schema/look.schema.md`](../content/schema/look.schema.md).
 
 **What each consumer of `look` needs**
 
@@ -1079,34 +950,18 @@ three digits (`012`), a value over 24 (`24.01`), a number ending in a dot
   from the same asset texts `ContentRepository` already reads, with
   `kotlinx.serialization.json` (`parseToJsonElement`; on the classpath through
   `:engine`'s `api` dependency, which the app must declare itself when the
-  engine is deleted). It resolves each unit as §4.5 says. Any failure, a parse
-  error or a path the grammar rejects, yields no glyph for that unit, which
-  draws the monogram. So does an id the app has no file
-  for, which will happen once the server can know a newer monster than an
+  engine is deleted). It resolves each unit as `look.schema.md` says. Any
+  failure, a parse error or a path the grammar rejects, yields no glyph for
+  that unit, which draws the monogram. So does an id the app has no file for,
+  which will happen once the server can know a newer monster than an
   older APK: the monogram comes from the name the scene carries and the hue
   from the id hash. It never throws.
-- **Rust strict loader:** the types below, and structural checks in
-  `validate()`: the grammar and the field table of §4.5, and nothing more.
+- **Rust strict loader:** `Look` in `server/rules/src/content.rs`, and
+  structural checks in `validate()`: the grammar and the field table of
+  `look.schema.md`, and nothing more.
   Every rule is decided from the one file, so two pull requests that each pass
   can never stop the server together. No rasteriser: the server refuses to
-  start on a malformed look, it does not judge a drawing. **This lands before
-  any content file carries `look`** (rollout step 1), because the server
-  rejects a field it does not know.
-
-  ```rust
-  #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
-  #[serde(rename_all = "camelCase", deny_unknown_fields)]
-  pub struct Look {
-      #[serde(default)] pub glyph: Option<String>,
-      #[serde(default)] pub hue: Option<String>,
-      #[serde(default)] pub details: Vec<LookDetail>,
-  }
-  #[derive(Debug, Clone, PartialEq, Deserialize)]
-  #[serde(deny_unknown_fields)]
-  pub struct LookDetail { pub tone: String, pub d: String }
-  // on Job and on Monster:
-  #[serde(default)] pub look: Option<Look>,
-  ```
+  start on a malformed look, it does not judge a drawing.
 - **CI:** §7.
 - **Docs:** `content/schema/*.md` (§10).
 
@@ -1188,10 +1043,9 @@ fun DrawScope.drawBoard(layers: List<Layer>, camera: BoardCamera, looks: Looks)
 |---|---|---|---|---|
 | `io.github.takahirom.roborazzi:roborazzi` and `:roborazzi-compose` | `1.47.0` | `testImplementation` in `:app` | Apache-2.0 | Renders real Compose screens to PNG on the JVM. 1.47.0 is the last release built against Kotlin 1.9 (its POM asks for kotlin-stdlib 1.9.22; 1.48.0 asks for 2.0.21), so the Kotlin 1.9.25 and Compose compiler 1.5.15 pairing is untouched. Brings `androidx.test:core` through espresso-core 3.5.1. |
 | `org.robolectric:robolectric` | `4.14.1` | `testImplementation` in `:app` | MIT | Android graphics without an emulator. The version Roborazzi 1.47.0's own build pins (with Compose UI 1.7.6; this app's BOM gives 1.7.5). Tests run at SDK 34, where every signed-in player is. |
-| `tiny-skia` | `=0.12.0` | `[dev-dependencies]` of `server/rules` | BSD-3-Clause | Pure-Rust rasteriser for the looks sheet and its checks. Never linked into the server. |
 
-Checked against Maven Central, crates.io and Roborazzi's repository at tag
-1.47.0 on 2026-11-18: all three exist at these versions, with these licences
+Checked against Maven Central and Roborazzi's repository at tag
+1.47.0 on 2026-11-18: both exist at these versions, with these licences
 and the Kotlin, Robolectric and Compose versions stated. Not added:
 the Roborazzi Gradle plugin (a few lines forward what it would, below), fonts,
 image loaders, animation libraries, Paparazzi.
@@ -1324,6 +1178,13 @@ a pixel, so only the cargo command's verdict counts and a run never
 re-implements the checks.
 
 ### Tier 2: screens, with Gradle on the runner (minutes)
+
+**Deferred until step 0** (Levi, 2026-11-19). This tier lands with #51,
+together with the workflow changes it needs. Until then screens are checked
+on Levi's phone in four rounds: after the camera, after the theme, after the
+mat and HUD, and after looks, replay and the map. His screenshots stay in the
+Claude session and are never committed, because most of them show the real
+map. Everything below is unchanged and is what #51 builds.
 
 Robolectric tests render stateless screen content with fixed state. One helper
 is the only way to take a picture, and it fails with neither property set,
@@ -1574,11 +1435,9 @@ not a committed picture.
 
 **This section applies once rollout step 1 is on `main`** (1b, if it lands
 in two parts): when `server/rules/examples/looks_sheet.rs` exists. Until then
-the Rust loader rejects `look` and the focus command does not exist. A run
+the focus command does not exist. A run
 asked for a new unit before that adds the file with no `look` and says in the
-pull request that the look is still to come; if the suites of step 6 then fail
-on their lists of expected ids, step 0b has not landed either, and the same
-pull request relaxes the two lists as 0b's row says (§9). From step 1 on, the
+pull request that the look is still to come. From step 1 on, the
 field table, the grammar and the resolving rules are in
 `content/schema/look.schema.md`.
 
@@ -1621,7 +1480,7 @@ you chose, rewards included, so Levi can change them.
      16 px: move the edge half a unit. Step 5's enlarged raster shows it.
    - Fill the box: centred, spanning at least 15 units each way (the check is
      10 of the 16 px). Stay out of the four cut corners, within 40 segments
-     and 6 subpaths (§4.5).
+     and 6 subpaths (`look.schema.md`).
    - Aim for 33% to 45% ink at 16 px, where the starting looks sit. The check
      allows up to 62%, but past 50% a token reads heavy beside the others.
    - Outline first. Two looks are told apart by their outline at 16 px, not by
@@ -1701,7 +1560,9 @@ the cargo picture has four columns and no text.)
 
 ## 9. Rollout
 
-Small pull requests, in order. Each ships alone. Step 0 is workflow files and
+Small pull requests, in order. (Built in this order on one integration branch, `claude/field-mat`,
+with one merge commit per step so a step can be reverted alone. Step 3 is
+deferred until step 0: see Tier 2 of §7.) Each ships alone. Step 0 is workflow files and
 then a secret, so it is made by Levi or by a Claude session with his
 credentials (§7); once its acceptance has passed, every later step can be a
 dispatched run. Steps 1 and 2 do not depend on each other and may land in
@@ -1753,21 +1614,6 @@ Each lands with the pull request that makes it true.
 
 **`docs/GAME_DESIGN.md`**
 
-- *Combat > Grid* (settled text; step 2). Replace "Rendering needs zoom 20–21
-  (8.7 px and 17.5 px per cell at mid latitudes), which is at or beyond the
-  maximum the standard OSM raster layer serves — confirm the exact cap against
-  whichever tile source is chosen, and expect an overzoomed, blurry base map at
-  combat zoom either way." with: "Rendering is set in dp per metre, not zoom
-  levels (`docs/VISUALS.md` §4.3): a fight opens at 34 dp per metre, with the
-  whole board one tap away at about 16. On raster tiles scaled to the screen's
-  density that is zoom 20 to 22.5, up to three levels past the 19 the standard
-  OSM layer serves — confirm the cap against whichever tile source is chosen,
-  and expect an enlarged, coarse base map under a fight either way." The same
-  pull request deletes the last sentence of rule 7 under *Visuals*, which
-  points at the old text.
-- *Tile source* (step 2). "1 m cells want zoom 20–21, at or past what the
-  standard layer serves" becomes "1 m cells want zoom 20–22.5, past what the
-  standard layer serves".
 - *Systems* table. The row `Visual identity`, added with this document as
   "designed, not built" and updated as steps land; the notes of `Map / world`
   and `Grid overlay on real map` gain the camera and the mat.
@@ -1780,8 +1626,7 @@ Each lands with the pull request that makes it true.
 - *Visuals*: added with this document. Step 10 deletes its sentences on which
   step a rule binds from.
 
-**`app/src/main/AndroidManifest.xml`**: `android:icon="@mipmap/ic_launcher"`
-on `<application>` (step 4); `android:screenOrientation="portrait"` on
+**`app/src/main/AndroidManifest.xml`**: `android:screenOrientation="portrait"` on
 `MainActivity` (step 6).
 
 **`GLOSSARY.md`**: the terms Look, Glyph, Token, Frame, Plate, Mat, Fight view
@@ -1791,25 +1636,11 @@ and Whole board, added with this document.
 why a look is path text in the unit's own file and colour says the side, added
 with this document.
 
-**`content/schema/`** (step 1): a `look` row in `job.schema.md` and
-`monster.schema.md`; a new `look.schema.md` that takes over the field table,
-the grammar and the resolving rules of §4.5, moved and not copied, with a link
-left in §4.5; the fixture file formats of §6. In "Forward compatibility" of
-both schema docs, "added by a future `schemaVersion` bump" becomes "added as
-an optional field, with no `schemaVersion` bump: both validators accept only
-version 1". The tables "Shipped jobs" and
-"Shipped monsters" at the end of the two schema docs are retitled "Starting
-jobs" and "Starting monsters" and stay at six rows, so no new unit has a
-shared file to edit.
-
-**`docs/SERVER.md`** (step 1): §2's table gains `rules/examples/looks_sheet.rs`,
-`rules/tests/looks.rs` and `rules/tests/look_checks/`; §3's expected crates
-gain the dev-dependency; §11's `content` tests gain the look rules and
-fixtures. With server combat (§14 step 2): the combat state the server sends
+**`docs/SERVER.md`**, with server combat (§14 step 2): the combat state the server sends
 gains the coming turn order, each unit's reach as cells and, for the acting
 unit, the number each target needs, so the app stops computing them (§4.4).
 
-**`README.md`**: "Build locally" gains the two render commands (steps 1, 3).
+**`README.md`**: "Build locally" gains the screen record command (step 3).
 **`CLAUDE.md`**: a pointer to this file, added with this document.
 
 **`.github/workflows/`**: `claude-dispatch.yml` and `ci.yml`, in step 0 only.
@@ -1823,10 +1654,10 @@ unit, the number each target needs, so the app stops computing them (§4.4).
 - Nothing was compiled for Android or run on a device. Every Kotlin signature
   here is a specification, not tested code, and the Gradle lines of §6 ran
   only on a plain `Test` task, outside the Android plugin. Compose and Android
-  API names (`CutCornerShape`, `CanvasDrawScope`, a device font family for
-  `sans-serif-condensed`, a colour-filter layer for the grey picture,
-  `statusBarsPadding`, `enableEdgeToEdge`, `Density(density, fontScale)`, the
-  Material icon names) are from memory of Compose 1.7.
+  API names (`CanvasDrawScope`, a colour-filter layer for the grey picture,
+  `statusBarsPadding`, `Density(density, fontScale)`, the icon names
+  `LocationOn`, `LocationOff` and `Check`) are from memory of Compose 1.7;
+  step 4 compiled the theme's, step 5 the run cards' icons.
 - **osmdroid drawing tiles enlarged to zoom 22.** Read from the osmdroid 6.1.20
   source (tile zoom is the floor of the zoom; nothing is downloaded above the
   source's 19; lower-zoom tiles from the cache are enlarged, unsmoothed), not
@@ -1852,9 +1683,6 @@ unit, the number each target needs, so the app stops computing them (§4.4).
   seen: step 0's acceptance is the first time.
 - That CI waits for approval on a pull request a dispatched run opens is from
   GitHub's documentation, which says the behaviour is still rolling out.
-- The looks checks ran here as a throwaway crate, not inside `server/rules`;
-  §4.5's table is its output. Whether the image build downloads the
-  dev-dependency was not checked; it is not compiled into the binary.
 - The colour-vision rows of the identity sheet are a picture, simulated with
   matrices quoted from memory. Nothing in the build uses them.
 - Real sunlight, real device fonts, haptics, and how 5.4 mm cells feel under a

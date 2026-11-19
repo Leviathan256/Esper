@@ -14,5 +14,14 @@
   "abilitiesGranted": ["arcane_bolt"],
   "prerequisites": [],
   "unlocks": [],
-  "jobPointsToMaster": 100
+  "jobPointsToMaster": 100,
+  "look": {
+    "glyph": "M13.5 1.5 L17.6 13.6 C20.8 14.2 23 15.6 23 17.4 C23 20 18 21.8 12 21.8 C6 21.8 1 20 1 17.4 C1 15.6 3.2 14.2 6.4 13.6 L10 5.5 C10.8 3.6 12 2.2 13.5 1.5 Z M7.4 11.4 C10 12.8 14 12.8 16.8 11.4 L17.6 13.8 C14.4 15.4 9.8 15.4 6.4 13.8 Z",
+    "hue": "violet",
+    "details": [
+      { "tone": "hue", "d": "M0 0 L24 0 L24 24 L0 24 Z" },
+      { "tone": "shade", "d": "M0 18.6 C6 20.6 18 20.6 24 18.6 L24 24 L0 24 Z" },
+      { "tone": "paper", "d": "M12.6 5 L13.4 7.2 L15.6 8 L13.4 8.8 L12.6 11 L11.8 8.8 L9.6 8 L11.8 7.2 Z" }
+    ]
+  }
 }

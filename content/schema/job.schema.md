@@ -52,6 +52,7 @@ so an older APK never crashes when it is shipped a newer job file.
 | `prerequisites` | list<string> | `[]` | every id must resolve to another job in the same load |
 | `unlocks` | list<string> | `[]` | every id must resolve to another job in the same load |
 | `jobPointsToMaster` | int | `100` | `>= 1`; the current job's job points must reach this before a job it unlocks becomes available |
+| `look` | object | none | optional; how the unit is drawn. Field table, path grammar and resolving rules in [`look.schema.md`](look.schema.md) |
 
 ## Dice notation
 
@@ -82,8 +83,9 @@ accumulated `jobPoints >= that prerequisite's jobPointsToMaster` (see
 ## Forward compatibility
 
 `ContentLoader` parses with `Json { ignoreUnknownKeys = true; encodeDefaults =
-true }`. A field this doc does not yet document, added by a future
-`schemaVersion` bump, is silently ignored by an older build rather than
+true }`. A field this doc does not yet document, added as an optional field
+with no `schemaVersion` bump (both validators accept only version 1), is
+silently ignored by an older build rather than
 crashing it. `schemaVersion` itself is the only field checked for content
 migration — job and monster files are read fresh from the APK every launch and
 carry no save-style migration chain (that exists only for `CharacterState`).
@@ -92,7 +94,7 @@ The Rust server (`server/rules/src/content.rs`) applies the same rules but
 **rejects** unknown keys, and refuses to start on invalid content: add a field
 to the Rust types before shipping it in a file. CI runs both loaders.
 
-## Shipped jobs
+## Starting jobs
 
 | id | notes |
 | --- | --- |

@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,10 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -35,6 +36,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.esper.app.game.ContentRepository
 import com.esper.app.game.GameSession
+import com.esper.app.ui.theme.EsperColors
+import com.esper.app.ui.theme.Spec
 import com.esper.engine.combat.BattleResult
 import com.esper.engine.combat.CombatAction
 import com.esper.engine.combat.CombatEngine
@@ -43,9 +46,11 @@ import com.esper.engine.combat.CombatUnit
 import com.esper.engine.combat.SimpleAi
 import com.esper.engine.geometry.GeoPoint
 import com.esper.engine.geometry.HexCoord
+import com.esper.engine.geometry.HexMetrics
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint as OsmGeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
 
@@ -167,12 +172,12 @@ private fun CombatBattleScreen(engine: CombatEngine, onFinished: () -> Unit) {
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
-            // maxZoomLevel BEFORE setZoom: MapView.setZoomLevel clamps against
-            // getMaxZoomLevel(), which falls back to MAPNIK's own maximum of 19
-            // until this is set — so setting it afterwards silently loses a level.
-            // A blurry over-zoomed base map past 19 is a documented accepted cost.
-            maxZoomLevel = 21.0
-            controller.setZoom(20.0)
+            // One tile pixel is one dp, so the camera's numbers are dp. osmdroid
+            // keeps the tile size in a static: MapScreen must set this too.
+            setTilesScaledToDpi(true)
+            // The pinch and the Whole board button zoom; stock buttons cover the board.
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+            // The zoom is set by frameCamera once the map's size is known.
             controller.setCenter(OsmGeoPoint(board.anchor.lat, board.anchor.lon))
         }
     }
@@ -258,6 +263,40 @@ private fun CombatBattleScreen(engine: CombatEngine, onFinished: () -> Unit) {
     val isPlayerTurn = result == null &&
         unitsSnapshot.find { it.id == currentActorId }?.playerControlled == true
 
+    // docs/VISUALS.md §4.3. The mode sticks until the button switches it.
+    var wholeBoard by rememberSaveable { mutableStateOf(false) }
+    var framed by remember { mutableStateOf(false) }
+
+    fun frameCamera(mapWidthDp: Double, mapHeightDp: Double, animate: Boolean) {
+        val latitude = board.anchor.lat
+        val wholeScale = CameraMath.wholeBoardScale(mapWidthDp, mapHeightDp, board.radiusCells)
+        // Before any zoom, which osmdroid clamps to these: a pinch moves freely
+        // between the whole board and 40 dp per metre without changing the mode.
+        mapView.maxZoomLevel = CameraMath.zoomFor(Spec.PINCH_MAX_DP_PER_METRE, latitude)
+        mapView.minZoomLevel = CameraMath.zoomFor(wholeScale, latitude)
+        val (centre, scale) = if (wholeBoard) {
+            board.anchor to wholeScale
+        } else {
+            // Every living unit's cell and every cell the acting unit can reach.
+            val cells = unitsSnapshot.filter { it.alive }.map { it.position } + legalMoves
+            val frame = CameraMath.fightFrame(
+                cells.ifEmpty { listOf(HexCoord.ORIGIN) }.map { HexMetrics.axialToLocal(it) },
+                mapWidthDp,
+                mapHeightDp,
+                board.radiusCells,
+            )
+            board.plane.toGeo(frame.centre) to frame.dpPerMetre
+        }
+        val point = OsmGeoPoint(centre.lat, centre.lon)
+        val zoom = CameraMath.zoomFor(scale, latitude)
+        if (animate) {
+            mapView.controller.animateTo(point, zoom, Spec.CAMERA_EASE_MS)
+        } else {
+            mapView.controller.setZoom(zoom)
+            mapView.controller.setCenter(point)
+        }
+    }
+
     // Settle the battle on ANY exit, not just the result card's button: a won
     // fight left by system back must still award xp, job points and the bestiary
     // entry. The toolbar arrow routes through this too (see MainActivity).
@@ -267,22 +306,36 @@ private fun CombatBattleScreen(engine: CombatEngine, onFinished: () -> Unit) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
+            val mapWidthDp = maxWidth.value.toDouble()
+            val mapHeightDp = maxHeight.value.toDouble()
+            // Opens in the fight view; eases to the chosen mode when it switches.
+            LaunchedEffect(wholeBoard, mapWidthDp, mapHeightDp) {
+                frameCamera(mapWidthDp, mapHeightDp, animate = framed)
+                framed = true
+            }
+            // In the fight view, eases to the fight frame at the start of each
+            // player-controlled turn (a refresh makes a new snapshot); the whole
+            // board stays where the player put it.
+            LaunchedEffect(unitsSnapshot) {
+                if (framed && !wholeBoard && isPlayerTurn) frameCamera(mapWidthDp, mapHeightDp, animate = true)
+            }
+
             AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
 
             // Visible attribution is required wherever OSM tiles are drawn.
             Text(
                 text = "© OpenStreetMap contributors",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.Black,
+                color = EsperColors.ink,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(4.dp)
-                    .background(Color.White.copy(alpha = 0.7f))
+                    .background(EsperColors.paper.copy(alpha = 0.7f))
                     .padding(horizontal = 4.dp, vertical = 2.dp),
             )
         }
@@ -327,8 +380,13 @@ private fun CombatBattleScreen(engine: CombatEngine, onFinished: () -> Unit) {
                 Text(line, style = MaterialTheme.typography.bodySmall)
             }
 
-            Button(onClick = { submitPlayerAction(CombatAction.Wait) }, enabled = isPlayerTurn) {
-                Text("Wait")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { submitPlayerAction(CombatAction.Wait) }, enabled = isPlayerTurn) {
+                    Text("Wait")
+                }
+                Button(onClick = { wholeBoard = !wholeBoard }) {
+                    Text(if (wholeBoard) "Fight view" else "Whole board")
+                }
             }
 
             result?.let { finalResult ->

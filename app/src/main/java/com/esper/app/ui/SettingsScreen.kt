@@ -6,13 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -31,7 +29,11 @@ import com.esper.app.BuildConfig
 import com.esper.app.core.Settings
 import com.esper.app.core.UpdateChecker
 import com.esper.app.game.GameSession
-import androidx.compose.ui.platform.LocalContext
+import com.esper.app.ui.theme.EsperButton
+import com.esper.app.ui.theme.EsperCard
+import com.esper.app.ui.theme.EsperColors
+import com.esper.app.ui.theme.EsperField
+import com.esper.app.ui.theme.Spec
 import kotlinx.coroutines.launch
 
 /**
@@ -45,65 +47,110 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(settings: Settings, onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var serverUrl by remember { mutableStateOf(settings.serverUrl) }
-    var owner by remember { mutableStateOf(settings.repoOwner) }
-    var repo by remember { mutableStateOf(settings.repoName) }
-    var branch by remember { mutableStateOf(settings.baseBranch) }
-    var token by remember { mutableStateOf(settings.githubToken) }
-    var nightly by remember { mutableStateOf(settings.followNightly) }
-    var revealToken by remember { mutableStateOf(false) }
-    var saved by remember { mutableStateOf(false) }
+    var state by remember {
+        mutableStateOf(
+            SettingsState(
+                serverUrl = settings.serverUrl,
+                owner = settings.repoOwner,
+                repo = settings.repoName,
+                branch = settings.baseBranch,
+                token = settings.githubToken,
+                nightly = settings.followNightly,
+            ),
+        )
+    }
 
+    SettingsContent(
+        state = state.copy(signedIn = GameSession.signedIn, keystoreAvailable = Settings.keystoreAvailable),
+        onChange = { state = it.copy(saved = false) },
+        onRevealToken = { state = state.copy(revealToken = !state.revealToken) },
+        onSave = {
+            settings.serverUrl = state.serverUrl
+            settings.repoOwner = state.owner
+            settings.repoName = state.repo
+            settings.baseBranch = state.branch.ifBlank { "main" }
+            settings.githubToken = state.token
+            settings.followNightly = state.nightly
+            state = state.copy(saved = true)
+        },
+        onSignOut = { scope.launch { GameSession.signOut() } },
+        onCreateToken = {
+            UpdateChecker.openUrl(context, "https://github.com/settings/personal-access-tokens/new")
+        },
+        onDone = onDone,
+    )
+}
+
+/** What the settings screen shows: the fields as typed, not yet saved. */
+data class SettingsState(
+    val serverUrl: String,
+    val owner: String,
+    val repo: String,
+    val branch: String,
+    val token: String,
+    val nightly: Boolean,
+    val revealToken: Boolean = false,
+    /** Everything shown has been saved. */
+    val saved: Boolean = false,
+    val signedIn: Boolean = false,
+    val keystoreAvailable: Boolean = true,
+    val build: String = "Build ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · " +
+        "${BuildConfig.CHANNEL} · ${BuildConfig.GIT_SHA.take(7)}",
+)
+
+/** The stateless settings screen (docs/VISUALS.md §4.6): what a test renders. Save is its one gold button. */
+@Composable
+fun SettingsContent(
+    state: SettingsState,
+    onChange: (SettingsState) -> Unit,
+    onRevealToken: () -> Unit,
+    onSave: () -> Unit,
+    onSignOut: () -> Unit,
+    onCreateToken: () -> Unit,
+    onDone: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(Spec.SCREEN_PADDING_DP.dp),
+        verticalArrangement = Arrangement.spacedBy(Spec.GAP_WIDE_DP.dp),
     ) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
 
-        OutlinedTextField(
-            value = serverUrl,
-            onValueChange = { serverUrl = it; saved = false },
-            label = { Text("Esper server (https://…)") },
-            singleLine = true,
+        EsperField(
+            value = state.serverUrl,
+            onValueChange = { onChange(state.copy(serverUrl = it)) },
+            label = "Esper server (https://…)",
             modifier = Modifier.fillMaxWidth(),
         )
-        if (GameSession.signedIn) {
-            OutlinedButton(onClick = { scope.launch { GameSession.signOut() } }) {
-                Text("Sign out")
-            }
-        }
+        if (state.signedIn) EsperButton("Sign out", onClick = onSignOut)
 
-        OutlinedTextField(
-            value = owner,
-            onValueChange = { owner = it; saved = false },
-            label = { Text("Repo owner") },
-            singleLine = true,
+        EsperField(
+            value = state.owner,
+            onValueChange = { onChange(state.copy(owner = it)) },
+            label = "Repo owner",
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(
-            value = repo,
-            onValueChange = { repo = it; saved = false },
-            label = { Text("Repo name") },
-            singleLine = true,
+        EsperField(
+            value = state.repo,
+            onValueChange = { onChange(state.copy(repo = it)) },
+            label = "Repo name",
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(
-            value = branch,
-            onValueChange = { branch = it; saved = false },
-            label = { Text("Base branch") },
-            singleLine = true,
+        EsperField(
+            value = state.branch,
+            onValueChange = { onChange(state.copy(branch = it)) },
+            label = "Base branch",
             modifier = Modifier.fillMaxWidth(),
         )
 
-        OutlinedTextField(
-            value = token,
-            onValueChange = { token = it; saved = false },
-            label = { Text("GitHub token") },
-            singleLine = true,
-            visualTransformation = if (revealToken) {
+        EsperField(
+            value = state.token,
+            onValueChange = { onChange(state.copy(token = it)) },
+            label = "GitHub token",
+            visualTransformation = if (state.revealToken) {
                 VisualTransformation.None
             } else {
                 PasswordVisualTransformation()
@@ -111,44 +158,28 @@ fun SettingsScreen(settings: Settings, onDone: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
         )
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spec.GAP_DP.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = { revealToken = !revealToken }) {
-                Text(if (revealToken) "Hide" else "Reveal")
-            }
-            TextButton(
-                onClick = {
-                    UpdateChecker.openUrl(
-                        context,
-                        "https://github.com/settings/personal-access-tokens/new",
-                    )
-                },
-            ) {
-                Text("Create token")
-            }
+            TextButton(onClick = onRevealToken) { Text(if (state.revealToken) "Hide" else "Reveal") }
+            TextButton(onClick = onCreateToken) { Text("Create token") }
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text("Token scope", style = MaterialTheme.typography.titleSmall)
+        EsperCard(modifier = Modifier.fillMaxWidth()) {
+            Text("Token scope", style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = "Use a fine-grained token limited to this one repository, with " +
+                    "Actions: read & write. That is enough to start a Claude run and read " +
+                    "its status, and nothing else.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (!state.keystoreAvailable) {
                 Text(
-                    text = "Use a fine-grained token limited to this one repository, with " +
-                        "Actions: read & write. That is enough to start a Claude run and read " +
-                        "its status, and nothing else.",
+                    text = "Warning: this device's keystore is unavailable, so the token " +
+                        "is stored unencrypted. Consider leaving it blank.",
                     style = MaterialTheme.typography.bodySmall,
+                    color = EsperColors.foe,
                 )
-                if (!Settings.keystoreAvailable) {
-                    Text(
-                        text = "Warning: this device's keystore is unavailable, so the token " +
-                            "is stored unencrypted. Consider leaving it blank.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
             }
         }
 
@@ -157,43 +188,26 @@ fun SettingsScreen(settings: Settings, onDone: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.padding(end = 12.dp)) {
+            Column(modifier = Modifier.weight(1f).padding(end = Spec.GAP_WIDE_DP.dp)) {
                 Text("Follow nightly builds", style = MaterialTheme.typography.bodyLarge)
                 Text(
                     text = "Track the rolling nightly prerelease instead of tagged stable releases.",
                     style = MaterialTheme.typography.bodySmall,
+                    color = EsperColors.inkSoft,
                 )
             }
-            Switch(checked = nightly, onCheckedChange = { nightly = it; saved = false })
+            Switch(checked = state.nightly, onCheckedChange = { onChange(state.copy(nightly = it)) })
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spec.GAP_DP.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Button(
-                onClick = {
-                    settings.serverUrl = serverUrl
-                    settings.repoOwner = owner
-                    settings.repoName = repo
-                    settings.baseBranch = branch.ifBlank { "main" }
-                    settings.githubToken = token
-                    settings.followNightly = nightly
-                    saved = true
-                },
-            ) {
-                Text("Save")
-            }
+            EsperButton("Save", onClick = onSave, primary = true)
             TextButton(onClick = onDone) { Text("Done") }
-            if (saved) {
-                Text("Saved", style = MaterialTheme.typography.bodySmall)
-            }
+            if (state.saved) Text("Saved", style = MaterialTheme.typography.bodySmall)
         }
 
-        Text(
-            text = "Build ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · " +
-                "${BuildConfig.CHANNEL} · ${BuildConfig.GIT_SHA.take(7)}",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        Text(state.build, style = MaterialTheme.typography.labelSmall, color = EsperColors.inkSoft)
     }
 }

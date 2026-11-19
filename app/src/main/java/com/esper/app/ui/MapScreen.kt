@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -25,7 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -36,6 +36,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.esper.app.core.MapState
 import com.esper.app.game.GameSession
 import com.esper.app.game.LocationProvider
+import com.esper.app.ui.theme.EsperButton
+import com.esper.app.ui.theme.EsperColors
+import com.esper.app.ui.theme.Spec
 import com.esper.engine.geometry.GeoPoint
 import kotlin.math.roundToInt
 import org.osmdroid.events.MapListener
@@ -43,6 +46,7 @@ import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint as OsmGeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
@@ -74,6 +78,11 @@ fun MapScreen(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            // One tile pixel is one dp. osmdroid keeps the tile size in a
+            // static: CombatScreen sets it too, or each changes the other's scale.
+            setTilesScaledToDpi(true)
+            // Zoomed by pinch alone until it has side buttons of its own (#43).
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
             controller.setZoom(MapState.zoom)
             controller.setCenter(OsmGeoPoint(MapState.latitude, MapState.longitude))
         }
@@ -85,8 +94,8 @@ fun MapScreen(
     // never turns into per-frame overlay churn.
     val radiusPolygon = remember(mapView) {
         Polygon(mapView).apply {
-            fillColor = 0x220000FF
-            strokeColor = 0x800000FF.toInt()
+            fillColor = EsperColors.ally.copy(alpha = 0x22 / 255f).toArgb()
+            strokeColor = EsperColors.ink.copy(alpha = 0x80 / 255f).toArgb()
             strokeWidth = 3f
             title = "Movement radius"
         }
@@ -253,13 +262,68 @@ fun MapScreen(
         mapView.invalidate()
     }
 
+    val encounterStatus = GameSession.encounter?.let { encounter ->
+        val names = encounter.monsterIds.joinToString(", ")
+        val distance = GameSession.distanceToEncounterMetres()
+        if (distance != null) {
+            "Encounter: $names · ${distance.roundToInt()} m away"
+        } else {
+            "Encounter: $names"
+        }
+    } ?: GameSession.encounterNotice?.let { "Encounter: $it" } ?: "Encounter: none nearby yet"
+
+    MapContent(
+        state = MapCardState(
+            locationDenied = GameSession.locationDenied,
+            waitingForFix = GameSession.radiusCenter == null,
+            encounterStatus = encounterStatus,
+            syncError = GameSession.syncError,
+            contentError = GameSession.contentError,
+            canEnter = GameSession.encounter != null,
+        ),
+        map = { AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize()) },
+        onOpenClaude = onOpenClaude,
+        onOpenPrompts = onOpenPrompts,
+        onEnterEncounter = {
+            GameSession.beginBattle(context)
+            if (GameSession.engine != null) onOpenEncounter()
+        },
+        onOpenCharacterSheet = onOpenCharacterSheet,
+    )
+}
+
+/** What the card under the walking map shows. Re-themed only: step 10 of docs/VISUALS.md §9 rebuilds it. */
+data class MapCardState(
+    val locationDenied: Boolean,
+    /** No leash centre yet. */
+    val waitingForFix: Boolean,
+    val encounterStatus: String,
+    val syncError: String?,
+    val contentError: String?,
+    /** An Encounter is there to enter. */
+    val canEnter: Boolean,
+)
+
+/**
+ * The stateless map screen (docs/VISUALS.md §4.6): what a test renders, with Fixture Town in the
+ * [map] slot. `Enter encounter` is its one gold button.
+ */
+@Composable
+fun MapContent(
+    state: MapCardState,
+    map: @Composable () -> Unit,
+    onOpenClaude: () -> Unit,
+    onOpenPrompts: () -> Unit,
+    onEnterEncounter: () -> Unit,
+    onOpenCharacterSheet: () -> Unit,
+) {
     Column(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
         ) {
-            AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize())
+            map()
 
             // Visible attribution is required by the ODbL and by the OSM tile
             // usage policy. It belongs over the map itself, not in an about
@@ -267,20 +331,26 @@ fun MapScreen(
             Text(
                 text = "© OpenStreetMap contributors",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.Black,
+                color = EsperColors.ink,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(4.dp)
-                    .background(Color.White.copy(alpha = 0.7f))
+                    .background(EsperColors.paper.copy(alpha = 0.7f))
                     .padding(horizontal = 4.dp, vertical = 2.dp),
             )
         }
 
+        // The card: paper, a 1.5 dp ink line above, no outline and no foot (§4.6).
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .background(EsperColors.paper)
+                .drawBehind {
+                    val stroke = Spec.OUTLINE_DP.dp.toPx()
+                    drawLine(EsperColors.ink, Offset(0f, stroke / 2), Offset(size.width, stroke / 2), stroke)
+                }
+                .padding(Spec.SCREEN_PADDING_DP.dp),
+            verticalArrangement = Arrangement.spacedBy(Spec.GAP_DP.dp),
         ) {
             Text(
                 text = "First view: local map",
@@ -291,59 +361,38 @@ fun MapScreen(
                     "Merging it publishes a new build for Obtainium.",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onOpenClaude) { Text("Ask Claude") }
-                OutlinedButton(onClick = onOpenPrompts) { Text("Prompt templates") }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spec.GAP_DP.dp)) {
+                EsperButton("Ask Claude", onClick = onOpenClaude)
+                EsperButton("Prompt templates", onClick = onOpenPrompts)
             }
 
-            val locationStatus = if (GameSession.locationDenied) "denied" else "granted"
             Text(
-                text = "Location: $locationStatus",
+                text = "Location: ${if (state.locationDenied) "denied" else "granted"}",
                 style = MaterialTheme.typography.bodySmall,
+                color = EsperColors.inkSoft,
             )
-            if (GameSession.radiusCenter == null) {
+            if (state.waitingForFix) {
                 Text(
                     text = "Waiting for a location fix — or pan the map to where you want to play.",
                     style = MaterialTheme.typography.bodySmall,
+                    color = EsperColors.inkSoft,
                 )
             }
-            val encounterStatus = GameSession.encounter?.let { encounter ->
-                val names = encounter.monsterIds.joinToString(", ")
-                val distance = GameSession.distanceToEncounterMetres()
-                if (distance != null) {
-                    "Encounter: $names · ${distance.roundToInt()} m away"
-                } else {
-                    "Encounter: $names"
-                }
-            } ?: GameSession.encounterNotice?.let { "Encounter: $it" } ?: "Encounter: none nearby yet"
             Text(
-                text = encounterStatus,
+                text = state.encounterStatus,
                 style = MaterialTheme.typography.bodySmall,
+                color = EsperColors.inkSoft,
             )
-            GameSession.syncError?.let { error ->
-                Text(
-                    text = error,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+            state.syncError?.let { error ->
+                Text(text = error, style = MaterialTheme.typography.bodySmall, color = EsperColors.foe)
             }
-            GameSession.contentError?.let { error ->
-                Text(
-                    text = "Content error: $error",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+            state.contentError?.let { error ->
+                Text(text = "Content error: $error", style = MaterialTheme.typography.bodySmall, color = EsperColors.foe)
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = {
-                        GameSession.beginBattle(context)
-                        if (GameSession.engine != null) onOpenEncounter()
-                    },
-                    enabled = GameSession.encounter != null,
-                ) { Text("Enter encounter") }
-                OutlinedButton(onClick = onOpenCharacterSheet) { Text("Character") }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spec.GAP_DP.dp)) {
+                EsperButton("Enter encounter", onClick = onEnterEncounter, primary = true, enabled = state.canEnter)
+                EsperButton("Character", onClick = onOpenCharacterSheet)
             }
         }
     }

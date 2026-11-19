@@ -1,10 +1,11 @@
 package com.esper.app.ui.game
 
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Point
+import androidx.compose.ui.graphics.toArgb
+import com.esper.app.ui.theme.EsperColors
 import com.esper.engine.geometry.HexBoard
 import com.esper.engine.geometry.HexCoord
 import org.osmdroid.util.GeoPoint as OsmGeoPoint
@@ -49,28 +50,28 @@ class HexGridOverlay(private val board: HexBoard) : Overlay() {
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = Color.argb(160, 255, 255, 255)
+        color = EsperColors.ink.copy(alpha = 160 / 255f).toArgb()
         strokeWidth = 2f
     }
     private val legalMovePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.argb(90, 64, 196, 255)
+        color = EsperColors.ally.copy(alpha = 90 / 255f).toArgb()
     }
     private val attackablePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.argb(110, 255, 64, 64)
+        color = EsperColors.foe.copy(alpha = 110 / 255f).toArgb()
     }
     private val playerUnitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.argb(140, 64, 220, 120)
+        color = EsperColors.ally.copy(alpha = 140 / 255f).toArgb()
     }
     private val enemyUnitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.argb(140, 200, 64, 200)
+        color = EsperColors.foe.copy(alpha = 140 / 255f).toArgb()
     }
     private val actorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = Color.argb(230, 255, 215, 0)
+        color = EsperColors.turn.copy(alpha = 230 / 255f).toArgb()
         strokeWidth = 5f
     }
 

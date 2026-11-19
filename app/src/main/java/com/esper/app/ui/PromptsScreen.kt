@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.esper.app.ui.theme.EsperButton
+import com.esper.app.ui.theme.EsperColors
+import com.esper.app.ui.theme.Spec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -48,12 +50,25 @@ fun PromptsScreen(onBack: () -> Unit) {
         }
     }
 
+    PromptsContent(
+        state = PromptsState(text = text, error = error),
+        onCopy = { copyToClipboard(context, "Esper prompts", it) },
+        onBack = onBack,
+    )
+}
+
+/** What the Prompts screen shows: the templates once loaded, or why they failed to. */
+data class PromptsState(val text: String?, val error: String?)
+
+/** The stateless Prompts screen (docs/VISUALS.md §4.6): what a test renders. `Copy all prompts` is its one gold button. */
+@Composable
+fun PromptsContent(state: PromptsState, onCopy: (String) -> Unit, onBack: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(Spec.SCREEN_PADDING_DP.dp),
+        verticalArrangement = Arrangement.spacedBy(Spec.GAP_WIDE_DP.dp),
     ) {
         Text(text = "Prompt templates", style = MaterialTheme.typography.titleLarge)
         Text(
@@ -61,22 +76,23 @@ fun PromptsScreen(onBack: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        val body = text
+        val body = state.text
         when {
-            error != null -> Text(
-                text = "Failed to load prompts: $error",
-                color = MaterialTheme.colorScheme.error,
+            state.error != null -> Text(
+                text = "Failed to load prompts: ${state.error}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = EsperColors.foe,
             )
 
-            body == null -> Text(text = "Loading…")
+            body == null -> Text(text = "Loading…", style = MaterialTheme.typography.bodyMedium)
 
             else -> {
-                Button(
-                    onClick = { copyToClipboard(context, "Esper prompts", body) },
+                EsperButton(
+                    text = "Copy all prompts",
+                    onClick = { onCopy(body) },
+                    primary = true,
                     modifier = Modifier.align(Alignment.End),
-                ) {
-                    Text("Copy all prompts")
-                }
+                )
                 Text(
                     text = body,
                     style = MaterialTheme.typography.bodySmall,
@@ -85,9 +101,7 @@ fun PromptsScreen(onBack: () -> Unit) {
             }
         }
 
-        Button(onClick = onBack, modifier = Modifier.align(Alignment.End)) {
-            Text("Back")
-        }
+        EsperButton("Back", onClick = onBack, modifier = Modifier.align(Alignment.End))
     }
 }
 
