@@ -55,6 +55,7 @@ private fun SurfaceBox(
     foot: Boolean,
     modifier: Modifier = Modifier,
     pressed: Boolean = false,
+    outlineDp: Float = Spec.OUTLINE_DP,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val footDp = if (foot) Spec.FOOT_DP else 0f
@@ -66,19 +67,24 @@ private fun SurfaceBox(
                 if (foot) translate(top = (footDp - down).dp.toPx()) { drawOutline(shape.createOutline(size, layoutDirection, this), ink) }
             }
             .background(fill, shape)
-            .border(Spec.OUTLINE_DP.dp, outline, shape),
+            .border(outlineDp.dp, outline, shape),
         content = content,
     )
 }
 
-/** A card: [paper], cut 8, with a foot. [outline] is [EsperColors.foe] for a warning. */
+/**
+ * A card: [paper], cut 8, with a foot. [outline] is [EsperColors.foe] for a warning;
+ * [emphasis] gives the 2.5 dp outline of a chosen card.
+ */
 @Composable
 fun EsperCard(
     modifier: Modifier = Modifier,
     outline: Color = ink,
+    emphasis: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    SurfaceBox(MaterialTheme.shapes.medium, paper, outline, foot = true, modifier = modifier) {
+    val outlineDp = if (emphasis) Spec.EMPHASIS_DP else Spec.OUTLINE_DP
+    SurfaceBox(MaterialTheme.shapes.medium, paper, outline, foot = true, modifier = modifier, outlineDp = outlineDp) {
         Column(
             modifier = Modifier.padding(Spec.GAP_WIDE_DP.dp),
             verticalArrangement = Arrangement.spacedBy(Spec.GAP_DP.dp),
@@ -141,9 +147,9 @@ fun EsperChip(text: String, modifier: Modifier = Modifier, icon: ImageVector? = 
     }
 }
 
-/** A stat tile: a [paperDim] well, cut 4, label over value. */
+/** A stat tile: a [paperDim] well, cut 4, label over value, and an optional [note] (an ability's modifier) under it. */
 @Composable
-fun EsperTile(label: String, value: String, modifier: Modifier = Modifier) {
+fun EsperTile(label: String, value: String, modifier: Modifier = Modifier, note: String? = null) {
     Box(
         modifier = modifier
             .defaultMinSize(minHeight = Spec.TILE_MIN_DP.dp)
@@ -153,6 +159,7 @@ fun EsperTile(label: String, value: String, modifier: Modifier = Modifier) {
         Column {
             Text(label, style = hudStyle(12), color = inkSoft)
             Text(value, style = hudStyle(20), color = ink)
+            note?.let { Text(it, style = hudStyle(12), color = inkSoft) }
         }
     }
 }
