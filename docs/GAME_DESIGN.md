@@ -552,7 +552,7 @@ pull request what it could not do.
 | --- | --- | --- |
 | Map / world | implemented | osmdroid + OSM tiles, `ui/MapScreen.kt` |
 | Self-hosted tiles | **required before launch** | OSM's public servers block heavy use; Protomaps/PMTiles recommended |
-| Visual identity | in progress | Field Mat: `docs/VISUALS.md`, rollout in its §9. Built: the camera (step 2); each unit's `look` in its content file, checked by the server (step 1a, `content/schema/look.schema.md`), not yet drawn by the app; the looks sheet and focus render in `cargo` (step 1b) |
+| Visual identity | in progress | Field Mat: `docs/VISUALS.md`, rollout in its §9. Built: the camera (step 2); each unit's `look` in its content file, checked by the server (step 1a, `content/schema/look.schema.md`), not yet drawn by the app; the looks sheet and focus render in `cargo` (step 1b); the theme, the launcher icon and edge to edge, on sign-in and settings (step 4, `ui/theme/`) |
 | Grid overlay on real map | MVP | Pure-Kotlin axial hex, 1 m across flats, projected onto lat/lon by a local tangent plane. **Deviation from H3 — see Combat > Grid.** `engine/geometry`. The camera frames it in dp per metre (`ui/game/CameraMath.kt`): an Encounter opens in the fight view, the whole board one tap away |
 | Elevation | not started | Real terrain data, keyless source, graceful flat fallback. ~30 m data gives tilt, not height tactics |
 | ATB turn order | MVP | Discrete gauge ticks at `speed`; flat action cost. `engine/combat/CombatEngine.kt` |

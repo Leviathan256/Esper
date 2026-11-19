@@ -25,7 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.esper.app.core.MapState
 import com.esper.app.game.GameSession
 import com.esper.app.game.LocationProvider
+import com.esper.app.ui.theme.EsperColors
 import com.esper.engine.geometry.GeoPoint
 import kotlin.math.roundToInt
 import org.osmdroid.events.MapListener
@@ -91,8 +92,8 @@ fun MapScreen(
     // never turns into per-frame overlay churn.
     val radiusPolygon = remember(mapView) {
         Polygon(mapView).apply {
-            fillColor = 0x220000FF
-            strokeColor = 0x800000FF.toInt()
+            fillColor = EsperColors.ally.copy(alpha = 0x22 / 255f).toArgb()
+            strokeColor = EsperColors.ink.copy(alpha = 0x80 / 255f).toArgb()
             strokeWidth = 3f
             title = "Movement radius"
         }
@@ -273,11 +274,11 @@ fun MapScreen(
             Text(
                 text = "© OpenStreetMap contributors",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.Black,
+                color = EsperColors.ink,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(4.dp)
-                    .background(Color.White.copy(alpha = 0.7f))
+                    .background(EsperColors.paper.copy(alpha = 0.7f))
                     .padding(horizontal = 4.dp, vertical = 2.dp),
             )
         }
